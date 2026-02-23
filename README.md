@@ -50,11 +50,13 @@
 https://yandex.cloud/ru/docs/tutorials/infrastructure-management/terraform-quickstart
 https://yandex.cloud/ru/docs/cli/quickstart#install
 https://yandex.cloud/ru/docs/compute/operations/vm-connect/ssh#linux-macos_2
+
 https://registry.terraform.io/providers/yandex-cloud/yandex/latest/docs/resources/compute_instance
 https://www.youtube.com/watch?v=q12v5mbMnco&list=PLjobQbACcMNlYIU0uYKM7GscG9g5Y3_bq&index=2
 
 
 Файл с ключами `key.json` не включен в репозиторий по соображениям безопасности.
+
 
 
 
