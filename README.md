@@ -30,6 +30,7 @@
 ![fmt validate plan](screenshots/05.jpg)
 
 В данном случае все изменения уже применены
+
 Запустить terraform apply, чтобы создать виртуальную машину.
 
 ![vm yc](screenshots/06.jpg)
@@ -54,4 +55,5 @@ https://www.youtube.com/watch?v=q12v5mbMnco&list=PLjobQbACcMNlYIU0uYKM7GscG9g5Y3
 
 
 Файл с ключами `key.json` не включен в репозиторий по соображениям безопасности.
+
 
