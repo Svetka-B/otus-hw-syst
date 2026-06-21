@@ -1,0 +1,8 @@
+---
+angie_lb_service_name: "angie"
+
+lb_listen_port: 80
+lb_upstream_name: "frontends_backend"
+lb_upstream_hosts: []
+
+lb_algorithm: "round_robin"

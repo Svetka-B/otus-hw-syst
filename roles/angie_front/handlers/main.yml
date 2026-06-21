@@ -1,0 +1,5 @@
+---
+- name: reload angie front
+  ansible.builtin.systemd:
+    name: "{{ angie_front_service_name }}"
+    state: reloaded

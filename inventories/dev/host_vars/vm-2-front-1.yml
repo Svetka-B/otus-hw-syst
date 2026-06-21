@@ -1,0 +1,3 @@
+node_role: "frontend"
+node_display_name: "vm-2-front-1"
+frontend_id: "front-1"

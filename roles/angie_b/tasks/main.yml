@@ -1,0 +1,53 @@
+---
+- name: Install prerequisites for Angie repository on LB
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - gnupg
+    state: present
+    update_cache: true
+  when: ansible_os_family == "Debian"
+
+- name: Download Angie signing key on LB
+  ansible.builtin.get_url:
+    url: https://angie.software/keys/angie-signing.gpg
+    dest: /usr/share/keyrings/angie-archive-keyring.gpg
+    mode: "0644"
+  when: ansible_os_family == "Debian"
+
+- name: Add Angie repository on LB (Ubuntu 22.04)
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/angie-archive-keyring.gpg] https://download.angie.software/angie/ubuntu/22.04 jammy main"
+    state: present
+    filename: angie
+  when:
+    - ansible_os_family == "Debian"
+    - ansible_distribution == "Ubuntu"
+    - ansible_distribution_major_version == "22"
+
+- name: Update apt cache after adding Angie repository on LB
+  ansible.builtin.apt:
+    update_cache: true
+  when: ansible_os_family == "Debian"
+
+- name: Install Angie on load balancer
+  ansible.builtin.apt:
+    name: angie
+    state: present
+  when: ansible_os_family == "Debian"
+
+- name: Deploy Angie load balancer config
+  ansible.builtin.template:
+    src: "{{ 'lb-ip-hash.conf.j2' if lb_algorithm == 'ip_hash' else 'lb-round-robin.conf.j2' }}"
+    dest: "/etc/angie/http.d/lb.conf"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: reload angie lb
+
+- name: Ensure Angie service is enabled and started
+  ansible.builtin.systemd:
+    name: "{{ angie_lb_service_name }}"
+    enabled: true
+    state: started

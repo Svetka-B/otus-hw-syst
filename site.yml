@@ -1,0 +1,32 @@
+---
+- name: Apply common base configuration to all hosts
+  hosts: all
+  gather_facts: true
+  become: true
+
+  roles:
+     - common
+
+- name: Configure backend runtime host
+  hosts: backend
+  gather_facts: true
+  become: true
+
+  roles:
+    - app_runtime
+
+- name: Configure frontend hosts
+  hosts: frontends
+  gather_facts: true
+  become: true
+
+  roles:
+    - angie_front
+
+- name: Configure load balancer host
+  hosts: angie_b
+  gather_facts: true
+  become: true
+
+  roles:
+    - angie_b

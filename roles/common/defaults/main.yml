@@ -1,0 +1,15 @@
+---
+# Дефолтные переменные роли common.
+common_manage_packages: true     # управлять пакетами в этой роли или нет
+common_upgrade_system: false     # делать ли dist-upgrade
+common_base_packages:
+  - curl
+  - vim
+  - htop
+  - rsync
+
+common_manage_timezone: false    # трогать ли timezone
+common_timezone: "Europe/Moscow"
+
+common_create_project_root: false
+common_project_root_dir: "/opt/homework2"

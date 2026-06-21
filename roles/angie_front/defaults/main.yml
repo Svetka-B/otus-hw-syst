@@ -1,0 +1,5 @@
+---
+angie_front_service_name: "angie"
+front_listen_port: 80
+front_backend_host: 10.2.0.29
+front_backend_port: 9000

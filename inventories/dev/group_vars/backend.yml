@@ -1,0 +1,3 @@
+
+backend_runtime_mode: docker_debug
+backend_debug_compose_dir: /opt/debug-backend

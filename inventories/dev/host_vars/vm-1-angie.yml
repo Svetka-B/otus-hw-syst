@@ -1,0 +1,2 @@
+node_role: "load_balancer"
+node_display_name: "vm-1-angie"

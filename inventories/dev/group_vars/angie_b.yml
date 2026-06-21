@@ -1,0 +1,8 @@
+lb_listen_port: 80
+lb_upstream_hosts:
+  - 10.2.0.5
+  - 10.2.0.20
+lb_upstream_name: "frontends_backend"
+
+#Если нужен ip-hash раскомментить
+#lb_algorithm: "ip_hash"

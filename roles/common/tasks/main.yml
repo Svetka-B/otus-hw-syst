@@ -1,0 +1,36 @@
+---
+- name: Ensure apt cache is updated (Debian/Ubuntu)
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+  when:
+    - ansible_os_family == "Debian"
+    - common_manage_packages
+
+- name: Upgrade system packages (optional)
+  ansible.builtin.apt:
+    upgrade: dist
+  when:
+    - ansible_os_family == "Debian"
+    - common_manage_packages
+    - common_upgrade_system
+
+- name: Install base packages
+  ansible.builtin.package:
+    name: "{{ common_base_packages }}"
+    state: present
+  when: common_manage_packages
+
+- name: Set system timezone
+  community.general.timezone:
+    name: "{{ common_timezone }}"
+  when: common_manage_timezone
+
+- name: Ensure project root directory exists
+  ansible.builtin.file:
+    path: "{{ common_project_root_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: common_create_project_root

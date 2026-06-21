@@ -1,0 +1,3 @@
+node_role: "backend"
+node_display_name: "vm-4-back-1"
+backend_instance_id: "back-1"
