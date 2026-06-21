@@ -1,64 +1,42 @@
 ## Описание проекта
-Домашнее задание №1 урока 3 по курсу Инфраструктура высоконагруженных систем от OTUS. 
+Домашнее задание №3 урока 6 по курсу Инфраструктура высоконагруженных систем от OTUS. Балансировка веб-приложения
+
 Цель работы: 
-- cоздать и запустить базовый Terraform скрипт для автоматизации установки и настройки виртуальной машины в рабочем окружении;
-- получить базовые навыки работы с Terraform для создания и управления инфраструктурой;
-- понять принципы IaC (Infrastructure as Code) и научиться применять их для автоматизации инфраструктуры;
+- научиться использовать Nginx в качестве балансировщика для веб-приложений;
+- получить рабочий пример настройки Nginx с базовой отказоустойчивостью бэкенда.
 
-Описание выполнения домашнего задания в соответствии с пошаговой инструкцией:
-1) Подготовка окружения:
-Установка Terraform на локальный ПК, выполнение terraform init. Проверка, что Terraform установлен на локальной машине:
+Инфраструктура: балансировщик + 2 фронта + backend в Docker
+ 
+vm-1-angie — внешний балансировщик;
+vm-2-front-1 — первый фронт на Angie;
+vm-3-front-2 — второй фронт на Angie;
+vm-4-back-1 — backend-хост с debug-контейнерами в Docker Compose. (изначально пыталась поднять на бэкенде uWSGI, но потом поменяла на debug контейнеры, где-то могли остаться артефакты такие как имя роли для бекенда, но работает все корректно)
+На backend-хосте поднимаются 4 контейнера vscoder/webdebugger с разными цветами фона, видно что запросы балансируются.
 
-![Terraform version](screenshots/01.jpg)
+Через Terraform в Yandex Cloud поднимаются:
+- 4 ВМ;
+- 2 подсети: одна для VM-1 (балансировщик с публичным IP), вторая — для фронтендов и backend’а (только внутренние IP).
 
-Создание УЗ, платежного аккаунта, облака и каталога в Yandex Cloud:
+VM-1 с публичным IP также выступает как NAT instance для остальных ВМ, чтобы они могли выходить в интернет (apt, docker pull и т.д.).
 
-![Yandex Cloud](screenshots/02.jpg)
+Часть переменных вынесена в variables.tf для удобства. В output отдаются IP-адреса созданных ВМ, чтобы проще было копировать их в hosts.ini для Ansible.
 
-Создание сервисного аккаунта
+После создания ВМ нужно добавить их адреса в hosts.ini Ansible.
 
-![Service account](screenshots/03.jpg)
-
-Установить командной строки Yandex Cloud. 
-
-![YC CLI](screenshots/04.jpg)
-
-Настройка доступа к облачному провайдеру: в создание main.tf, providers.tf и variables.tf. Создание сети, подсети и ресурса (виртуальная машина ubuntu) в main.tf. Добавление output.tf, которая покажет IP-адреса созданной виртуальной машины. 
-4) Инициализация и запуск:
-Запустить terraform init, проверка формата кода terraform fmt, проверить корректность кода terraform validate, составить план terraform plan.
-
-![fmt validate plan](screenshots/05.jpg)
-
-В данном случае все изменения уже применены
-
-Запустить terraform apply, чтобы создать виртуальную машину.
-
-![vm yc](screenshots/06.jpg)
-5) Проверка результата:
-Убедиться, что виртуальная машина создана и ее IP-адрес получен.
-
-![vm ip](screenshots/07.jpg)
-
-![vm](screenshots/08.jpg)
-
-Подключиться к машине по SSH для подтверждения ее доступности.
-
-![access](screenshots/09.jpg)
+Далее запускается playbook site.yml, который назначает ролям ВМ:
+- common назначается для всех, ставит базовые пакеты типа curl
+- angie_b назначается на балансировщик, устанавливает angie, грузит на него конфиг из templates с соответсвующим видом балансировки - round robin или ip hash
+- angie_front назначается на фронтенды, устанавливает angie, грузит на него конфиг reverse proxy на backend из templates 
+- app_runtime назначается на бэкенды, устанавливает docker, поднимает debug-контейнеры 
 
 Домашнее задание выполнено с использованием ресурсов:
 
-https://yandex.cloud/ru/docs/tutorials/infrastructure-management/terraform-quickstart
+https://docs.ansible.com/projects/ansible/latest/index.html
 
-https://yandex.cloud/ru/docs/cli/quickstart#install
+https://habr.com/ru/articles/907078/
 
-https://yandex.cloud/ru/docs/compute/operations/vm-connect/ssh#linux-macos_2
+https://habr.com/ru/articles/935934/
 
-https://registry.terraform.io/providers/yandex-cloud/yandex/latest/docs/resources/compute_instance
-
-https://www.youtube.com/watch?v=q12v5mbMnco&list=PLjobQbACcMNlYIU0uYKM7GscG9g5Y3_bq&index=2
-
-
-Файл с ключами `key.json` не включен в репозиторий по соображениям безопасности.
 
 
 
