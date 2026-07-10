@@ -40,3 +40,9 @@
 - keepalived — назначается на nginx-1 и nginx-2, настраивает VRRP и виртуальный IP.
 
 Во внешнем NLB целевая группа настроена на nginx-1 и nginx-2. В nginx используется upstream на два backend-хоста.
+
+!(screenshots/screen1.jpg)
+!(screenshots/screen2.jpg)
+!(screenshots/screen3.jpg)
+!(screenshots/screen4.jpg)
+
