@@ -1,0 +1,23 @@
+[uwsgi]
+chdir = {{ app_current_path }}
+module = project.wsgi:application
+
+master = true
+processes = 2
+threads = 2
+
+socket = 0.0.0.0:8000
+vacuum = true
+
+die-on-term = true
+need-app = true
+
+virtualenv = {{ app_venv_path }}
+env = DJANGO_SETTINGS_MODULE=project.settings
+env = APP_ENV_FILE={{ app_shared_path }}/.env
+
+uid = {{ app_user }}
+gid = {{ app_user }}
+
+harakiri = 60
+max-requests = 1000

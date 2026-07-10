@@ -1,0 +1,22 @@
+---
+- hosts: all
+  become: true
+  roles:
+    - common
+
+- hosts: db
+  become: true
+  roles:
+    - db
+
+- hosts: backend
+  become: true
+  roles:
+    - gfs2
+    - backend
+
+- hosts: nginx
+  become: true
+  roles:
+    - nginx
+    - keepalived

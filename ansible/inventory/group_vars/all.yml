@@ -1,0 +1,44 @@
+---
+backend_1_ip: "10.1.0.21"
+backend_2_ip: "10.1.0.22"
+db_ip: "10.1.0.31"
+
+db_name: "appdb"
+db_user: "appuser"
+db_password: "PO785db"
+db_host: "10.1.0.31"
+db_port: 5432
+db_listen_address: "10.1.0.31"
+
+app_user: "app"
+app_src: "../app"
+app_root: "/opt/app"
+app_current_path: "/opt/app/current"
+app_shared_path: "/opt/app/shared"
+app_venv_path: "/opt/app/venv"
+uwsgi_socket_dir: "/run/uwsgi"
+
+django_secret_key: "PO785dj"
+allowed_hosts:
+  - "*"
+
+static_root: "/srv/shared/static"
+
+gfs2_device: "/dev/vdb"
+gfs2_mount_point: "/srv/shared/static"
+gfs2_cluster_name: "appcluster"
+gfs2_fs_name: "staticfs"
+
+nginx_upstreams:
+  - "10.1.0.21:8000"
+  - "10.1.0.22:8000"
+
+keepalived_vip: "10.2.0.100"
+keepalived_interface: "eth0"
+keepalived_router_id: 51
+keepalived_auth_pass: "PO785ka"
+
+nginx_1_priority: 200
+nginx_2_priority: 100
+
+postgresql_version: 14

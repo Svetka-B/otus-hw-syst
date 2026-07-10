@@ -1,0 +1,165 @@
+---
+- name: Install backend packages
+  ansible.builtin.apt:
+    name:
+      - python3
+      - python3-venv
+      - python3-pip
+      - python3-dev
+      - build-essential
+      - libpq-dev
+      - rsync
+      - tar
+      - gzip
+    state: present
+    update_cache: true
+    lock_timeout: 300
+
+- name: Ensure app user exists
+  ansible.builtin.user:
+    name: app
+    shell: /bin/bash
+    system: true
+    create_home: false
+
+- name: Create application directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode | default('0755') }}"
+  loop:
+    - { path: /opt/app, owner: app, group: app }
+    - { path: /opt/app/current, owner: app, group: app }
+    - { path: /opt/app/shared, owner: app, group: app }
+    - { path: /opt/app/venv, owner: app, group: app }
+    - { path: /run/uwsgi, owner: www-data, group: www-data, mode: '0755' }
+
+- name: Remove previous local archive
+  delegate_to: localhost
+  become: false
+  ansible.builtin.file:
+    path: /tmp/app.tar.gz
+    state: absent
+  run_once: true
+
+- name: Create local application archive
+  delegate_to: localhost
+  become: false
+  community.general.archive:
+    path:
+      - "{{ playbook_dir }}/../app/*"
+    dest: /tmp/app.tar.gz
+    format: gz
+    exclude_path:
+      - "{{ playbook_dir }}/../app/.git"
+      - "{{ playbook_dir }}/../app/.github"
+      - "{{ playbook_dir }}/../app/.venv"
+      - "{{ playbook_dir }}/../app/venv"
+      - "{{ playbook_dir }}/../app/node_modules"
+      - "{{ playbook_dir }}/../app/__pycache__"
+      - "{{ playbook_dir }}/../app/staticfiles"
+      - "{{ playbook_dir }}/../app/media"
+      - "{{ playbook_dir }}/../app/.idea"
+      - "{{ playbook_dir }}/../app/.vscode"
+      - "{{ playbook_dir }}/../app/db.sqlite3"
+  run_once: true
+
+- name: Remove previous application files
+  ansible.builtin.file:
+    path: /opt/app/current
+    state: absent
+
+- name: Recreate application directory
+  ansible.builtin.file:
+    path: /opt/app/current
+    state: directory
+    owner: app
+    group: app
+    mode: '0755'
+
+- name: Copy application archive to backends
+  ansible.builtin.copy:
+    src: /tmp/app.tar.gz
+    dest: /tmp/app.tar.gz
+    mode: '0644'
+
+- name: Unpack application archive on backends
+  ansible.builtin.unarchive:
+    src: /tmp/app.tar.gz
+    dest: /opt/app/current
+    remote_src: true
+    owner: app
+    group: app
+
+- name: Fix ownership for application files
+  ansible.builtin.file:
+    path: /opt/app/current
+    state: directory
+    recurse: true
+    owner: app
+    group: app
+
+- name: Create Python virtual environment
+  ansible.builtin.command:
+    cmd: python3 -m venv /opt/app/venv
+    creates: /opt/app/venv/bin/activate
+
+- name: Install Python dependencies
+  ansible.builtin.pip:
+    requirements: /opt/app/current/requirements.txt
+    virtualenv: /opt/app/venv
+
+- name: Create Django environment file
+  ansible.builtin.template:
+    src: env.j2
+    dest: /opt/app/current/.env
+    owner: app
+    group: app
+    mode: '0640'
+  notify: restart uwsgi
+
+- name: Create uWSGI config
+  ansible.builtin.template:
+    src: app.ini.j2
+    dest: /opt/app/current/app.ini
+    owner: app
+    group: app
+    mode: '0644'
+  notify: restart uwsgi
+
+- name: Install uWSGI systemd unit
+  ansible.builtin.template:
+    src: uwsgi.service.j2
+    dest: /etc/systemd/system/uwsgi.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart uwsgi
+
+- name: Ensure uwsgi service is enabled and started
+  ansible.builtin.systemd:
+    name: uwsgi
+    state: started
+    enabled: true
+    daemon_reload: true
+- name: Run Django migrations
+  ansible.builtin.command:
+    cmd: /opt/app/venv/bin/python manage.py migrate --noinput
+    chdir: /opt/app/current
+  become: true
+  become_user: app
+  environment:
+    DJANGO_SETTINGS_MODULE: "{{ django_settings_module | default('project.settings') }}"
+  notify: restart uwsgi
+
+- name: Collect static files
+  ansible.builtin.command:
+    cmd: /opt/app/venv/bin/python manage.py collectstatic --noinput
+    chdir: /opt/app/current
+  become: true
+  become_user: app
+  environment:
+    DJANGO_SETTINGS_MODULE: "{{ django_settings_module | default('project.settings') }}"
+  notify: restart uwsgi

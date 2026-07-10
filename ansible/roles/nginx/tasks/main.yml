@@ -1,0 +1,44 @@
+---
+- name: Install nginx
+  ansible.builtin.apt:
+    name: nginx
+    state: present
+    update_cache: true
+    lock_timeout: 300
+
+- name: Remove default nginx site
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: restart nginx
+
+- name: Render nginx site config
+  ansible.builtin.template:
+    src: app.conf.j2
+    dest: /etc/nginx/sites-available/app.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart nginx
+
+- name: Validate nginx config
+  ansible.builtin.command: nginx -t
+  changed_when: false
+
+- name: Remove existing enabled site file
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/app.conf
+    state: absent
+    
+- name: Enable nginx site
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/app.conf
+    dest: /etc/nginx/sites-enabled/app.conf
+    state: link
+  notify: restart nginx
+
+- name: Ensure nginx started and enabled
+  ansible.builtin.service:
+    name: nginx
+    state: started
+    enabled: true

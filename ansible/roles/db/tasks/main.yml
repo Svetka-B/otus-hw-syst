@@ -1,0 +1,62 @@
+---
+- name: Install PostgreSQL packages
+  ansible.builtin.apt:
+    name:
+      - postgresql
+      - postgresql-contrib
+      - python3-psycopg2
+    state: present
+    update_cache: true
+    lock_timeout: 300
+
+- name: Ensure PostgreSQL is enabled and started
+  ansible.builtin.service:
+    name: postgresql
+    state: started
+    enabled: true
+
+- name: Configure listen_addresses
+  ansible.builtin.lineinfile:
+    path: "/etc/postgresql/{{ postgresql_version }}/main/postgresql.conf"
+    regexp: '^#?listen_addresses\s*='
+    line: "listen_addresses = '{{ db_listen_address }}'"
+  notify: restart postgresql
+
+- name: Configure password_encryption
+  ansible.builtin.lineinfile:
+    path: "/etc/postgresql/{{ postgresql_version }}/main/postgresql.conf"
+    regexp: '^#?password_encryption\s*='
+    line: "password_encryption = 'scram-sha-256'"
+  notify: restart postgresql
+
+- name: Allow backend hosts in pg_hba.conf
+  ansible.builtin.blockinfile:
+    path: "/etc/postgresql/{{ postgresql_version }}/main/pg_hba.conf"
+    marker: "# {mark} ANSIBLE BACKEND ACCESS"
+    block: |
+      host    {{ db_name }}    {{ db_user }}    {{ backend_1_ip }}/32    scram-sha-256
+      host    {{ db_name }}    {{ db_user }}    {{ backend_2_ip }}/32    scram-sha-256
+  notify: restart postgresql
+
+- name: Apply PostgreSQL config changes immediately
+  ansible.builtin.meta: flush_handlers
+
+- name: Create database user
+  become: true
+  become_user: postgres
+  community.postgresql.postgresql_user:
+    name: "{{ db_user }}"
+    password: "{{ db_password }}"
+    encrypted: true
+    role_attr_flags: LOGIN
+    db: postgres
+    login_unix_socket: /var/run/postgresql
+
+- name: Create application database
+  become: true
+  become_user: postgres
+  community.postgresql.postgresql_db:
+    name: "{{ db_name }}"
+    owner: "{{ db_user }}"
+    encoding: "UTF8"
+    login_unix_socket: /var/run/postgresql

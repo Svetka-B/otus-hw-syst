@@ -1,0 +1,3 @@
+# nginx-2
+keepalived_state: BACKUP
+keepalived_priority: 100

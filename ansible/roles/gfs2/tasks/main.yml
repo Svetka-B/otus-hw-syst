@@ -1,0 +1,42 @@
+---
+- name: Install filesystem packages
+  ansible.builtin.apt:
+    name:
+      - e2fsprogs
+      - lvm2
+    state: present
+    update_cache: true
+    lock_timeout: 300
+
+- name: Create mount point
+  ansible.builtin.file:
+    path: "{{ gfs2_mount_point }}"
+    state: directory
+    mode: "0755"
+
+- name: Check current filesystem type
+  ansible.builtin.command: "blkid -o value -s TYPE {{ gfs2_device }}"
+  register: current_fs
+  failed_when: false
+  changed_when: false
+
+- name: Create ext4 filesystem
+  community.general.filesystem:
+    fstype: ext4
+    dev: "{{ gfs2_device }}"
+  when: current_fs.stdout != "ext4"
+
+- name: Mount shared filesystem
+  ansible.posix.mount:
+    path: "{{ gfs2_mount_point }}"
+    src: "{{ gfs2_device }}"
+    fstype: ext4
+    opts: noatime,nodiratime
+    state: mounted
+- name: Ensure shared static directory is owned by app
+  ansible.builtin.file:
+    path: /srv/shared/static
+    state: directory
+    owner: app
+    group: app
+    mode: '0775'

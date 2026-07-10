@@ -1,0 +1,7 @@
+---
+- name: restart uwsgi
+  ansible.builtin.systemd:
+    name: uwsgi
+    state: restarted
+    enabled: true
+    daemon_reload: true

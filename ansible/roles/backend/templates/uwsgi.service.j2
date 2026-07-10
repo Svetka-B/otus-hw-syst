@@ -1,0 +1,17 @@
+[Unit]
+Description=uWSGI service
+After=network.target
+
+[Service]
+User=app
+Group=www-data
+WorkingDirectory=/opt/app/current
+EnvironmentFile=/opt/app/current/.env
+ExecStart=/opt/app/venv/bin/uwsgi --ini /opt/app/current/app.ini
+Restart=always
+KillSignal=SIGTERM
+RuntimeDirectory=uwsgi
+RuntimeDirectoryMode=0755
+
+[Install]
+WantedBy=multi-user.target

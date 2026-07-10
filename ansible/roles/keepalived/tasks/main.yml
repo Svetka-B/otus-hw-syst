@@ -1,0 +1,28 @@
+---
+- name: Install keepalived
+  ansible.builtin.apt:
+    name: keepalived
+    state: present
+    update_cache: true
+    lock_timeout: 300
+
+- name: Deploy nginx health check script
+  ansible.builtin.copy:
+    dest: /usr/local/bin/check_nginx.sh
+    mode: "0755"
+    content: |
+      #!/bin/bash
+      systemctl is-active --quiet nginx
+
+- name: Render keepalived config
+  ansible.builtin.template:
+    src: keepalived.conf.j2
+    dest: /etc/keepalived/keepalived.conf
+    mode: "0644"
+  notify: restart keepalived
+
+- name: Ensure keepalived is enabled and started
+  ansible.builtin.service:
+    name: keepalived
+    state: started
+    enabled: true
