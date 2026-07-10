@@ -41,11 +41,15 @@
 
 Во внешнем NLB целевая группа настроена на nginx-1 и nginx-2. В nginx используется upstream на два backend-хоста.
 
+На скриншоте видим ip адрес выданный Yandex Cloud Network Load Balancer
 ![screen01](screenshots/screen1.png)
 
+Видим, что при обращении по данному ip обращение происходит на разные backend сервера (видно, что имена разные)
 ![screen02](screenshots/screen2.png)
 
 ![screen03](screenshots/screen3.png)
+
+При отключении одного из backend серверов - работа приложения не прекращается 
 
 ![screen04](screenshots/screen4.png)
 
