@@ -41,8 +41,8 @@
 
 Во внешнем NLB целевая группа настроена на nginx-1 и nginx-2. В nginx используется upstream на два backend-хоста.
 
-!(screenshots/screen1.jpg)
-!(screenshots/screen2.jpg)
-!(screenshots/screen3.jpg)
-!(screenshots/screen4.jpg)
+![screen01](screenshots/screen1.jpg)
+![screen02](screenshots/screen2.jpg)
+![screen03](screenshots/screen3.jpg)
+![screen04](screenshots/screen4.jpg)
 
