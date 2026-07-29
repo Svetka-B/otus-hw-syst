@@ -1,64 +1,65 @@
 ## Описание проекта
-Домашнее задание №1 урока 3 по курсу Инфраструктура высоконагруженных систем от OTUS. 
+Домашнее задание №5 урока 11 по курсу Инфраструктура высоконагруженных систем от OTUS. 
 Цель работы: 
-- cоздать и запустить базовый Terraform скрипт для автоматизации установки и настройки виртуальной машины в рабочем окружении;
-- получить базовые навыки работы с Terraform для создания и управления инфраструктурой;
-- понять принципы IaC (Infrastructure as Code) и научиться применять их для автоматизации инфраструктуры;
+Перевести базу веб-проекта на один из вариантов кластера MySQL: Percona XtraDB Cluster или InnoDB Cluster.
 
-Описание выполнения домашнего задания в соответствии с пошаговой инструкцией:
-1) Подготовка окружения:
-Установка Terraform на локальный ПК, выполнение terraform init. Проверка, что Terraform установлен на локальной машине:
+## Описание/Пошаговая инструкция выполнения домашнего задания:
 
-![Terraform version](screenshots/01.jpg)
+Используем terraform и ansible роль для развертывания отказоустойчивого кластера MySQL. В проекте выбран InnoDB Cluster.
 
-Создание УЗ, платежного аккаунта, облака и каталога в Yandex Cloud:
+1) Разворачиваем отказоустойчивый кластер MySQL (InnoDB Cluster) на ВМ в Proxmox.
+2) Создаем внутри кластера БД для проекта.
 
-![Yandex Cloud](screenshots/02.jpg)
+## Подготовленная инфраструктура
 
-Создание сервисного аккаунта
+В лабораторной работе развернуты 2 nginx с балансировкой через VIP Keepalived + 2 backend + 3 ВМ БД Mysql
 
-![Service account](screenshots/03.jpg)
+- nginx-1 — первый nginx-хост;
+- nginx-2 — второй nginx-хост;
+- backend-1 — первый backend-хост с Django-приложением;
+- backend-2 — второй backend-хост с Django-приложением;
+- db-1, db-2, db-3 — три узла MySQL InnoDB Cluster с автоматическим переключением при сбоях.
 
-Установить командной строки Yandex Cloud. 
+InnoDB Cluster состоит из трёх узлов (db-1, db-2, db-3), использующих групповую репликацию. При отказе одного из узлов кластер продолжает работу, автоматически выбирая нового PRIMARY.
 
-![YC CLI](screenshots/04.jpg)
+## Ход работы
 
-Настройка доступа к облачному провайдеру: в создание main.tf, providers.tf и variables.tf. Создание сети, подсети и ресурса (виртуальная машина ubuntu) в main.tf. Добавление output.tf, которая покажет IP-адреса созданной виртуальной машины. 
-4) Инициализация и запуск:
-Запустить terraform init, проверка формата кода terraform fmt, проверить корректность кода terraform validate, составить план terraform plan.
+1. Развёртывание MySQL InnoDB Cluster (роль db)
 
-![fmt validate plan](screenshots/05.jpg)
+    Роль назначается на группу db (db-1, db-2, db-3).
+    Устанавливается MySQL 8.0, MySQL Shell, Python-коннектор.
+    Настраивается bind-address = 0.0.0.0 и удаляются все конфликтующие конфиги.
+    Устанавливается плагин group_replication.
+    Создаётся административный пользователь cluster_admin с полными правами.
+    На db-1 создаётся InnoDB Cluster с использованием communicationStack: XCOM и указанием локального адреса и порта (33061).
+    Вторичные узлы (db-2, db-3) добавляются в кластер через clone-восстановление.
+    Также в роли создаются база данных app_db и пользователь app для Django-приложения.
 
-В данном случае все изменения уже применены
+2. Настройка MySQL Router (роль mysql_router)
 
-Запустить terraform apply, чтобы создать виртуальную машину.
+    Роль назначается на группу backend (backend-1, backend-2).
+    Устанавливается MySQL Router.
+    Выполняется bootstrap-команда с использованием административного пользователя cluster_admin. Router настраивается на локальный порт (127.0.0.1) с портами 6446 (RW) и 6447 (RO).
+    После bootstrap Router запускается как systemd-сервис.
 
-![vm yc](screenshots/06.jpg)
-5) Проверка результата:
-Убедиться, что виртуальная машина создана и ее IP-адрес получен.
+3. Развёртывание Django-приложения (роль backend_app)
 
-![vm ip](screenshots/07.jpg)
-
-![vm](screenshots/08.jpg)
-
-Подключиться к машине по SSH для подтверждения ее доступности.
-
-![access](screenshots/09.jpg)
-
-Домашнее задание выполнено с использованием ресурсов:
-
-https://yandex.cloud/ru/docs/tutorials/infrastructure-management/terraform-quickstart
-
-https://yandex.cloud/ru/docs/cli/quickstart#install
-
-https://yandex.cloud/ru/docs/compute/operations/vm-connect/ssh#linux-macos_2
-
-https://registry.terraform.io/providers/yandex-cloud/yandex/latest/docs/resources/compute_instance
-
-https://www.youtube.com/watch?v=q12v5mbMnco&list=PLjobQbACcMNlYIU0uYKM7GscG9g5Y3_bq&index=2
+    На бэкенд-серверах устанавливаются Python, виртуальное окружение и зависимости.
+    Синхронизируется исходный код приложения (из локальной папки).
+    Создаётся файл .env с параметрами подключения к базе через MySQL Router (host=127.0.0.1, port=6446 для записи, 6447 для чтения — Django использует RW порт для миграций и записи).
+    Запускается миграция (выполняется один раз через delegate_to на backend-1).
+    Собираются статические файлы в общую директорию GFS2.
+    Настраивается Gunicorn как systemd-сервис.
 
 
-Файл с ключами `key.json` не включен в репозиторий по соображениям безопасности.
+На скриншоте видим что при остановке узла db-2 приложение работает
+![screen01](screenshots/screen1.png)
+
+Видим, что при вводе команды print (cluster.status()) отображается PRIMARY DB-1 192.168.1.221 и 2 SECONDARY DB-2,3 192.168.1.222 и 192.168.1.223
+
+![screen02](screenshots/screen2.png)
+
+
 
 
 
