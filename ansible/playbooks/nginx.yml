@@ -1,0 +1,7 @@
+---
+- name: Deploy nginx frontends
+  hosts: nginx
+  become: true
+  roles:
+    - nginx
+    - keepalived

@@ -1,0 +1,4 @@
+- import_playbook: storage.yml
+- import_playbook: cluster.yml
+- import_playbook: app.yml
+- import_playbook: nginx.yml

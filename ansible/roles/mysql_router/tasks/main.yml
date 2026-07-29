@@ -1,0 +1,108 @@
+---
+- name: Install MySQL Router
+  ansible.builtin.apt:
+    name: mysql-router
+    state: present
+    update_cache: true
+
+- name: Ensure mysqlrouter user exists
+  ansible.builtin.user:
+    name: "{{ mysql_router_user }}"
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: false
+
+- name: Stop mysqlrouter service before re-bootstrap
+  ansible.builtin.systemd:
+    name: mysqlrouter
+    state: stopped
+  failed_when: false
+
+- name: Remove old MySQL Router bootstrap config
+  ansible.builtin.file:
+    path: /etc/mysqlrouter
+    state: absent
+
+- name: Remove old MySQL Router state dir
+  ansible.builtin.file:
+    path: /var/lib/mysqlrouter
+    state: absent
+
+- name: Remove old MySQL Router runtime dir
+  ansible.builtin.file:
+    path: /run/mysqlrouter
+    state: absent
+
+- name: Recreate MySQL Router directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ mysql_router_user }}"
+    group: "{{ mysql_router_user }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "/etc/mysqlrouter", mode: "0755" }
+    - { path: "/var/lib/mysqlrouter", mode: "0755" }
+    - { path: "/run/mysqlrouter", mode: "0755" }
+
+- name: Ensure MySQL Router admin user exists on cluster
+  ansible.builtin.shell: |
+    mysql -u cluster_admin -p{{ mysql_root_password }} -e "
+      CREATE USER IF NOT EXISTS '{{ mysql_ic_admin_user }}'@'%' IDENTIFIED BY '{{ mysql_ic_admin_password }}';
+      GRANT ALL PRIVILEGES ON *.* TO '{{ mysql_ic_admin_user }}'@'%' WITH GRANT OPTION;
+      FLUSH PRIVILEGES;
+    "
+  delegate_to: "{{ groups['db'][0] }}"
+  run_once: true
+  changed_when: false
+  failed_when: false
+
+
+- name: Bootstrap MySQL Router against InnoDB Cluster
+  ansible.builtin.shell: |
+    mysqlrouter --bootstrap {{ mysql_ic_admin_user }}:{{ mysql_ic_admin_password }}@{{ mysql_router_bootstrap_host }}:3306 \
+      --directory /etc/mysqlrouter \
+      --user {{ mysql_router_user }} \
+      --conf-bind-address {{ mysql_router_bind_address }} \
+      --force
+  args:
+    executable: /bin/bash
+
+- name: Fix ownership for MySQL Router files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    owner: "{{ mysql_router_user }}"
+    group: "{{ mysql_router_user }}"
+    recurse: true
+    state: directory
+  loop:
+    - /etc/mysqlrouter
+    - /var/lib/mysqlrouter
+    - /run/mysqlrouter
+
+- name: Deploy mysqlrouter systemd unit
+  ansible.builtin.template:
+    src: mysqlrouter.service.j2
+    dest: /etc/systemd/system/mysqlrouter.service
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Ensure mysqlrouter service is enabled and restarted
+  ansible.builtin.systemd:
+    name: mysqlrouter
+    enabled: true
+    state: restarted
+    daemon_reload: true
+
+- name: Wait for MySQL Router RW port
+  ansible.builtin.wait_for:
+    host: "{{ mysql_router_bind_address }}"
+    port: "{{ mysql_router_rw_port }}"
+    timeout: 60
+
+- name: Wait for MySQL Router RO port
+  ansible.builtin.wait_for:
+    host: "{{ mysql_router_bind_address }}"
+    port: "{{ mysql_router_ro_port }}"
+    timeout: 60

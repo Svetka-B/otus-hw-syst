@@ -1,0 +1,10 @@
+---
+- name: Configure iSCSI initiators on backend nodes
+  hosts: backend
+  become: true
+  roles:
+    - iscsi_initiator
+    - cluster_base
+    - gfs2
+      
+

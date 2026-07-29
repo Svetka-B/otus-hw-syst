@@ -1,0 +1,23 @@
+
+---
+- name: Prepare MySQL nodes (install, configure, create user)
+  hosts: db
+  become: true  
+  roles:
+    - db
+  tags: prepare
+
+- name: Create MySQL cluster (only on db-1)
+  hosts: db-1
+  become: true  
+  roles:
+    - db
+  tags: cluster
+
+- name: Deploy backend application
+  hosts: backend
+  become: true
+  roles:
+    - common
+    - mysql_router
+    - backend_app

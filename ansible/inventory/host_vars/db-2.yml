@@ -1,0 +1,2 @@
+mysql_server_id: 102
+mysql_group_replication_local_address: "192.168.1.222:33061"

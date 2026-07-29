@@ -1,0 +1,56 @@
+app_name: notes_app
+
+app_user: app
+app_group: app
+
+app_root: /opt/app
+app_current_path: /opt/app/current
+app_venv_path: /opt/app/venv
+
+app_run_dir: /run/gunicorn
+app_bind_host: 0.0.0.0
+app_bind_port: 8000
+app_workers: 2
+
+
+app_local_source_path: /home/dev/otushw/hw5/app/
+
+app_env_path: /opt/app/current/.env
+app_manage_py_path: /opt/app/current/manage.py
+app_wsgi_module: notes_app.wsgi:application
+
+gfs2_mount_point: /srv/shared
+shared_static_path: /srv/shared/static
+shared_media_path: /srv/shared/media
+
+django_settings_module: notes_app.settings
+django_secret_key: "48124812"
+
+django_allowed_hosts:
+  - 127.0.0.1
+  - 192.168.1.203  
+  - localhost
+
+django_csrf_trusted_origins:
+  - http://127.0.0.1
+
+mysql_router_user: mysqlrouter
+mysql_router_bind_address: 127.0.0.1
+mysql_router_rw_port: 6446
+mysql_router_ro_port: 6447
+mysql_router_bootstrap_host: 192.168.1.221
+
+mysql_ic_admin_user: cluster_admin
+mysql_ic_admin_password: "48124812"
+
+django_db_engine: django.db.backends.mysql
+django_db_name: app_db
+django_db_user: app
+django_db_password: "48124812"
+django_db_host: 127.0.0.1
+django_db_port: 6446
+
+django_csrf_trusted_origins:
+  - "http://127.0.0.1"
+  - "http://192.168.1.203"
+

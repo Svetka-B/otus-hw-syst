@@ -1,0 +1,5 @@
+nginx_public_ip: "192.168.1.201"
+nginx_role: master
+keepalived_priority: 150
+keepalived_state: MASTER
+keepalived_unicast_src_ip: 192.168.1.201

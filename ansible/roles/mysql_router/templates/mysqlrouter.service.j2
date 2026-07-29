@@ -1,0 +1,14 @@
+
+[Unit]
+Description=MySQL Router
+After=network.target
+
+[Service]
+User=mysqlrouter
+Group=mysqlrouter
+ExecStart=/usr/bin/mysqlrouter -c /etc/mysqlrouter/mysqlrouter.conf
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

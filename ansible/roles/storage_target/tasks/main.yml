@@ -1,0 +1,110 @@
+---
+- name: Install iSCSI target packages
+  ansible.builtin.apt:
+    name:
+      - targetcli-fb
+    state: present
+    update_cache: true
+    lock_timeout: 300
+
+- name: Ensure target service is enabled and started
+  ansible.builtin.systemd:
+    name: target
+    state: started
+    enabled: true
+
+- name: Check storage LUN device exists
+  ansible.builtin.stat:
+    path: "{{ storage_lun_device }}"
+  register: storage_lun_device_stat
+
+- name: Fail if storage LUN device is missing
+  ansible.builtin.fail:
+    msg: "Storage LUN device {{ storage_lun_device }} not found on {{ inventory_hostname }}"
+  when: not storage_lun_device_stat.stat.exists
+
+- name: Check existing targetcli configuration
+  ansible.builtin.command: targetcli ls
+  register: targetcli_ls
+  changed_when: false
+
+- name: Read current targetcli configuration
+  ansible.builtin.command:
+    cmd: targetcli ls
+  register: targetcli_ls
+  changed_when: false
+
+- name: Create iSCSI backstore
+  ansible.builtin.command:
+    cmd: targetcli /backstores/block create shared_lun /dev/sdb
+  register: targetcli_backstore_create
+  failed_when:
+    - targetcli_backstore_create.rc != 0
+    - "'already in use' not in targetcli_backstore_create.stderr"
+    - "'exists' not in targetcli_backstore_create.stderr"
+  changed_when:
+    - targetcli_backstore_create.rc == 0
+      
+- name: Read current targetcli configuration after backstore step
+  ansible.builtin.command:
+    cmd: targetcli ls
+  register: targetcli_ls_after_backstore
+  changed_when: false
+
+- name: Create iSCSI target
+  ansible.builtin.command:
+    cmd: "targetcli /iscsi create {{ iscsi_target_iqn }}"
+  when: iscsi_target_iqn not in targetcli_ls.stdout
+
+- name: Create iSCSI LUN
+  ansible.builtin.command:
+    cmd: targetcli /iscsi/iqn.2026-07.local.hw4:storage-1/tpg1/luns create /backstores/block/shared_lun
+  register: targetcli_lun_create
+  failed_when:
+    - targetcli_lun_create.rc != 0
+    - "'already exists' not in targetcli_lun_create.stderr"
+  changed_when:
+    - targetcli_lun_create.rc == 0
+
+- name: Get current portals
+  ansible.builtin.command:
+    cmd: "targetcli /iscsi/{{ iscsi_target_iqn }}/tpg1/portals ls"
+  register: iscsi_portals
+  changed_when: false
+  failed_when: false
+
+- name: Remove default wildcard portal
+  ansible.builtin.command:
+    cmd: "targetcli /iscsi/{{ iscsi_target_iqn }}/tpg1/portals delete 0.0.0.0 {{ iscsi_target_port }}"
+  when: "'0.0.0.0' in iscsi_portals.stdout"
+
+- name: Add dedicated portal
+  ansible.builtin.command:
+    cmd: "targetcli /iscsi/{{ iscsi_target_iqn }}/tpg1/portals create {{ iscsi_target_portal_ip }} {{ iscsi_target_port }}"
+  when: iscsi_target_portal_ip not in iscsi_portals.stdout
+
+- name: Get current ACLs
+  ansible.builtin.command:
+    cmd: "targetcli /iscsi/{{ iscsi_target_iqn }}/tpg1/acls ls"
+  register: iscsi_acls
+  changed_when: false
+  failed_when: false
+
+- name: Add ACLs for backend initiators
+  ansible.builtin.command:
+    cmd: >
+      targetcli /iscsi/iqn.2026-07.local.hw4:storage-1/tpg1/acls create {{ item }}
+  loop:
+    - "{{ hostvars['backend-1'].iscsi_initiator_iqn }}"
+    - "{{ hostvars['backend-2'].iscsi_initiator_iqn }}"
+  register: targetcli_acl_create
+  failed_when:
+    - targetcli_acl_create.rc != 0
+    - "'already exists' not in targetcli_acl_create.stderr"
+  changed_when:
+    - targetcli_acl_create.rc == 0
+
+- name: Save targetcli configuration
+  ansible.builtin.command: targetcli saveconfig
+  changed_when: false
+

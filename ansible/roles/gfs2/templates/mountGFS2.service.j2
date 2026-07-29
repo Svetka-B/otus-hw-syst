@@ -1,0 +1,14 @@
+[Unit]
+Description=Mount GFS2 filesystem
+After=systemd-networkd.service corosync.service dlm.service
+Requires=systemd-networkd.service corosync.service dlm.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+ExecStartPre=/usr/bin/sleep 20
+ExecStart=/usr/bin/mount -U {{ gfs2_fs_uuid }} {{ shared_mount_point }} -o noatime
+ExecStop=/usr/bin/umount {{ shared_mount_point }}
+
+[Install]
+WantedBy=multi-user.target

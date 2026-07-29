@@ -1,0 +1,30 @@
+ansible_user: svtk
+ansible_python_interpreter: /usr/bin/python3
+ansible_ssh_private_key_file: /home/dev/.ssh/id_ed25519
+
+timezone: Europe/Moscow
+
+lab_domain: hw4.local
+iscsi_iqn_prefix: "iqn.2026-07.local.hw4"
+
+mysql_cluster_name: svtkcluster
+mysql_root_password: "48124812"
+mysql_app_db: app_db
+mysql_app_user: app
+mysql_app_password: "48124812"
+
+
+mysql_ic_admin_user: svtk
+mysql_ic_admin_password: "48124812"
+
+mysql_router_user: mysqlrouter
+mysql_router_rw_port: 6446
+mysql_router_ro_port: 6447  
+
+
+django_allowed_hosts:
+  - 127.0.0.1
+  - localhost
+
+django_csrf_trusted_origins:
+  - http://127.0.0.1

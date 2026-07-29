@@ -1,0 +1,39 @@
+- name: Install keepalived and curl
+  apt:
+    name:
+      - keepalived
+      - curl
+    state: present
+    update_cache: true
+
+- name: Enable keepalived service
+  systemd:
+    name: keepalived
+    enabled: true
+
+- name: Deploy nginx health check script
+  copy:
+    src: check_nginx.sh
+    dest: /usr/local/bin/check_nginx.sh
+    owner: root
+    group: root
+    mode: "0755"
+  notify: restart keepalived
+
+- name: Render keepalived config
+  template:
+    src: keepalived.conf.j2
+    dest: /etc/keepalived/keepalived.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart keepalived
+
+- name: Validate keepalived config
+  command: keepalived -t -f /etc/keepalived/keepalived.conf
+  changed_when: false
+
+- name: Ensure keepalived is started
+  systemd:
+    name: keepalived
+    state: started

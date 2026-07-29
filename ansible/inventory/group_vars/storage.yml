@@ -1,0 +1,14 @@
+
+iscsi_target_iqn: "{{ iscsi_iqn_prefix }}:storage-1"
+iscsi_target_portal_ip: "{{ hostvars['storage-1'].storage_iscsi_ip }}"
+iscsi_target_port: 3260
+
+iscsi_backstore_name: shared_lun
+iscsi_lun_name: shared_lun0
+
+iscsi_allowed_initiators:
+  - "{{ hostvars['backend-1'].iscsi_initiator_name }}"
+  - "{{ hostvars['backend-2'].iscsi_initiator_name }}"
+
+
+

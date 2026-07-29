@@ -1,0 +1,32 @@
+
+db_name: app_db
+db_user: app 
+db_password: "48124812"
+
+django_db_name: app_db
+django_db_user: app
+django_db_password: "48124812"  
+
+mysql_version: "8.0"
+mysql_bind_address: "0.0.0.0"
+mysql_port: 3306
+mysql_x_port: 33060
+
+mysql_cluster_nodes:
+  - { name: "db-1", address: "192.168.1.221", mysql_port: 3306, gr_port: 33061 }
+  - { name: "db-2", address: "192.168.1.222", mysql_port: 3306, gr_port: 33061 }
+  - { name: "db-3", address: "192.168.1.223", mysql_port: 3306, gr_port: 33061 }
+
+mysql_group_name: "3f1b7e5a-7d8c-11ef-b6f0-525400123456"
+mysql_cluster_seed_hosts: "192.168.1.221:33061,192.168.1.222:33061,192.168.1.223:33061"
+
+mysql_innodb_cluster_single_primary: true
+mysql_create_app_db: true
+
+mysql_firewall_allowed_tcp:
+  - 3306
+  - 33060
+  - 33061
+
+mysql_root_password: "48124812"
+

@@ -1,0 +1,139 @@
+
+---
+- name: Install backend system packages
+  apt:
+    name:
+      - python3
+      - python3-venv
+      - python3-pip
+      - python3-dev
+      - default-libmysqlclient-dev
+      - build-essential
+      - pkg-config
+      - rsync
+      - acl
+    state: present
+    update_cache: true
+
+- name: Ensure app group exists
+  group:
+    name: "{{ app_group }}"
+    state: present
+
+- name: Ensure app user exists
+  user:
+    name: "{{ app_user }}"
+    group: "{{ app_group }}"
+    system: true
+    create_home: false
+    shell: /usr/sbin/nologin
+
+- name: Create application directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0755"
+  loop:
+    - "{{ app_root }}"
+    - "{{ app_run_dir }}"
+    - "{{ shared_static_path }}"
+    - "{{ shared_media_path }}"
+    - "{{ app_current_path }}"
+
+- name: Synchronize application source code to backend
+  ansible.posix.synchronize:
+    src: "{{ app_local_source_path }}"
+    dest: "{{ app_current_path }}"
+    archive: true
+    delete: true
+    compress: true
+    rsync_opts:
+      - "--exclude=.git"
+      - "--exclude=venv"
+      - "--exclude=__pycache__"
+      - "--exclude=*.pyc"
+      - "--exclude=.env"
+      - "--exclude=db.sqlite3"
+  notify:
+    - restart gunicorn
+
+- name: Set ownership on application directory
+  file:
+    path: "{{ app_current_path }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    recurse: true
+
+- name: Create virtualenv
+  command: python3 -m venv {{ app_venv_path }}
+  args:
+    creates: "{{ app_venv_path }}/bin/activate"
+
+- name: Install python requirements
+  pip:
+    requirements: "{{ app_current_path }}/requirements.txt"
+    virtualenv: "{{ app_venv_path }}"
+    virtualenv_python: python3
+  notify:
+    - restart gunicorn
+
+- name: Deploy application environment file
+  template:
+    src: app.env.j2
+    dest: "{{ app_env_path }}"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0640"
+  notify:
+    - restart gunicorn
+
+- name: Deploy gunicorn systemd unit
+  template:
+    src: gunicorn.service.j2
+    dest: "/etc/systemd/system/{{ app_name }}.service"
+    mode: "0644"
+  notify:
+    - daemon reload
+    - restart gunicorn
+
+- name: Wait for MySQL Router RW port
+  ansible.builtin.wait_for:
+    host: "{{ django_db_host }}"
+    port: "{{ django_db_port }}"
+    timeout: 60
+  run_once: true
+  delegate_to: backend-1
+
+- name: Run database migrations
+  command: "{{ app_venv_path }}/bin/python manage.py migrate --noinput"
+  args:
+    chdir: "{{ app_current_path }}"
+  environment:
+    DJANGO_SETTINGS_MODULE: "{{ django_settings_module }}"
+  become: true
+  become_user: "{{ app_user }}"
+  run_once: true
+  delegate_to: backend-1
+
+- name: Collect static files
+  command: "{{ app_venv_path }}/bin/python manage.py collectstatic --noinput"
+  args:
+    chdir: "{{ app_current_path }}"
+  environment:
+    DJANGO_SETTINGS_MODULE: "{{ django_settings_module }}"
+  become: true
+  become_user: "{{ app_user }}"
+  run_once: true
+  delegate_to: backend-1
+
+- name: Ensure gunicorn service is enabled and started
+  systemd:
+    name: "{{ app_name }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+
+

@@ -1,0 +1,21 @@
+[mysqld]
+bind-address = 0.0.0.0
+port = {{ mysql_port }}
+mysqlx_port = {{ mysql_x_port }}
+
+server-id = {{ ansible_default_ipv4.address | replace('.', '') | int }}
+log_bin = /var/log/mysql/mysql-bin.log
+binlog_format = ROW
+log_slave_updates = ON
+binlog_checksum = NONE
+gtid_mode = ON
+enforce_gtid_consistency = ON
+transaction_write_set_extraction = XXHASH64
+
+report_host = {{ ansible_default_ipv4.address }}
+report_port = {{ mysql_port }}
+
+max_connections = 500
+innodb_buffer_pool_size = 1G
+innodb_flush_log_at_trx_commit = 1
+sync_binlog = 1

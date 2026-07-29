@@ -1,0 +1,116 @@
+---
+- name: Install GFS2 packages
+  ansible.builtin.apt:
+    name:
+      - gfs2-utils
+      - dlm-controld
+    state: present
+    update_cache: true
+    lock_timeout: 300
+
+- name: Load gfs2 kernel module
+  community.general.modprobe:
+    name: gfs2
+    state: present
+
+- name: Ensure gfs2 kernel module loads on boot
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/gfs2.conf
+    content: |
+      gfs2
+    mode: "0644"
+
+- name: Ensure shared mount point exists
+  ansible.builtin.file:
+    path: "{{ shared_mount_point }}"
+    state: directory
+    mode: "0755"
+
+- name: Wait for shared block device to appear
+  ansible.builtin.wait_for:
+    path: "{{ gfs2_device }}"
+    state: present
+    timeout: 60
+
+- name: Check current filesystem type on shared device
+  ansible.builtin.command:
+    cmd: "lsblk -no FSTYPE {{ gfs2_device }}"
+  register: current_fs
+  changed_when: false
+  failed_when: false
+
+- name: Unmount legacy filesystem from old mount point
+  ansible.posix.mount:
+    path: "{{ gfs2_mount_point }}"
+    state: absent
+  when:
+    - gfs2_mount_point is defined
+    - gfs2_mount_point != shared_mount_point
+    - current_fs.stdout != "gfs2"
+  ignore_errors: true
+
+- name: Unmount shared mount point before formatting
+  ansible.posix.mount:
+    path: "{{ shared_mount_point }}"
+    state: absent
+  when: current_fs.stdout != "gfs2"
+  ignore_errors: true
+
+- name: Check cluster status before creating GFS2 resources
+  ansible.builtin.command:
+    cmd: pcs status
+  run_once: true
+  delegate_to: "{{ groups['backend'][0] }}"
+  register: pcs_status_before_gfs2
+  changed_when: false
+
+- name: Show cluster status before GFS2 setup
+  ansible.builtin.debug:
+    var: pcs_status_before_gfs2.stdout_lines
+  run_once: true
+
+- name: Create GFS2 filesystem on shared device
+  ansible.builtin.command:
+    cmd: >
+      mkfs.gfs2 -O
+      -p {{ gfs2_lock_protocol }}
+      -t {{ cluster_name }}:{{ gfs2_fs_name }}
+      -j {{ gfs2_journals }}
+      {{ gfs2_device }}
+  when: current_fs.stdout != "gfs2"
+  run_once: true
+  delegate_to: "{{ groups['backend'][0] }}"
+  register: mkfs_gfs2_result
+  changed_when: mkfs_gfs2_result.rc == 0
+
+- name: Read UUID of GFS2 device
+  ansible.builtin.command:
+    cmd: "blkid -s UUID -o value {{ gfs2_device }}"
+  register: gfs2_uuid
+  changed_when: false
+  run_once: true
+  delegate_to: "{{ groups['backend'][0] }}"
+
+- name: Set fact with GFS2 UUID
+  ansible.builtin.set_fact:
+    gfs2_fs_uuid: "{{ gfs2_uuid.stdout }}"
+  run_once: true
+
+- name: Template and install mountGFS2.service
+  ansible.builtin.template:
+    src: mountGFS2.service.j2
+    dest: /etc/systemd/system/mountGFS2.service
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Enable and start mountGFS2.service
+  ansible.builtin.systemd:
+    name: mountGFS2.service
+    state: started
+    enabled: true
+
