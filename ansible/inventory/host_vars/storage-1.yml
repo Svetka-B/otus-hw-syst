@@ -1,0 +1,4 @@
+storage_public_ip: "192.168.1.231"
+storage_iscsi_ip: "10.10.40.21"
+
+storage_lun_device: "/dev/sdb"

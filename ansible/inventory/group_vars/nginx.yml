@@ -1,0 +1,15 @@
+nginx_upstream_port: 8000
+nginx_worker_processes: auto
+nginx_server_name: "_"
+
+nginx_upstreams:
+  - "{{ hostvars['backend-1'].ansible_host | default('backend-1') }}:{{ nginx_upstream_port }}"
+  - "{{ hostvars['backend-2'].ansible_host | default('backend-2') }}:{{ nginx_upstream_port }}"
+
+nginx_static_path: /srv/shared/static
+nginx_media_path: /srv/shared/media
+
+keepalived_vip: "192.168.1.203"
+keepalived_interface: "eth0"
+keepalived_virtual_router_id: 51
+keepalived_auth_pass: "48124812"

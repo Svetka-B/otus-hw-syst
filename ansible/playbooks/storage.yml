@@ -1,0 +1,8 @@
+
+
+---
+- name: Configure iSCSI target on storage node
+  hosts: storage
+  become: true
+  roles:
+    - storage_target

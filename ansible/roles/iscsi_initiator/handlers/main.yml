@@ -1,0 +1,5 @@
+---
+- name: restart iscsi
+  ansible.builtin.systemd:
+    name: iscsi
+    state: restarted

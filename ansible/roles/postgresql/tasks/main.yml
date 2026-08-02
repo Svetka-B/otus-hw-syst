@@ -1,0 +1,47 @@
+---
+- name: Install PostgreSQL
+  apt:
+    name:
+      - python3-pip
+      - postgresql-16
+      - postgresql-client-16
+      - postgresql-contrib-16
+    state: present
+
+- name: Install Patroni and dependencies
+  pip:
+    name:
+      - patroni[etcd]
+      - psycopg2-binary
+      - pyyaml
+    state: present
+    extra_args: '--break-system-packages'
+      
+- name: Create Patroni config dir
+  file:
+    path: /etc/patroni
+    state: directory
+    owner: postgres
+    group: postgres
+
+- name: Deploy Patroni configuration
+  template:
+    src: patroni.yml.j2
+    dest: /etc/patroni/patroni.yml
+    owner: postgres
+    group: postgres
+    mode: 0640
+  notify: restart patroni
+
+- name: Deploy systemd service for Patroni
+  template:
+    src: patroni.service.j2
+    dest: /etc/systemd/system/patroni.service
+  notify: restart patroni
+
+- name: Start Patroni
+  systemd:
+    name: patroni
+    state: started
+    enabled: yes
+    daemon_reload: yes

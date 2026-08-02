@@ -1,0 +1,19 @@
+# {{ ansible_managed }}
+name: {{ inventory_hostname }}
+data-dir: {{ etcd_data_dir | default('/var/snap/etcd/common/data') }}
+wal-dir: {{ etcd_wal_dir | default('/var/snap/etcd/common/wal') }}
+enable-v2: true
+
+listen-peer-urls: http://{{ ansible_host }}:2380
+listen-client-urls: http://{{ ansible_host }}:2379,http://127.0.0.1:2379
+
+initial-advertise-peer-urls: http://{{ ansible_host }}:2380
+advertise-client-urls: http://{{ ansible_host }}:2379
+
+initial-cluster: {% for host in groups['etcd'] %}{{ hostvars[host].inventory_hostname }}=http://{{ hostvars[host].ansible_host }}:2380{% if not loop.last %},{% endif %}{% endfor %}
+
+initial-cluster-state: {{ etcd_initial_cluster_state | default('new') }}
+initial-cluster-token: {{ etcd_initial_cluster_token | default('etcd-cluster-token') }}
+
+election-timeout: {{ etcd_election_timeout | default(1500) }}
+heartbeat-interval: {{ etcd_heartbeat_interval | default(250) }}

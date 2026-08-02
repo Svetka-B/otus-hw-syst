@@ -1,0 +1,14 @@
+---
+- name: Deploy etcd cluster
+  hosts: etcd
+  become: true
+  roles:
+    - common
+    - etcd
+
+- name: Deploy PostgreSQL cluster with Patroni
+  hosts: db
+  become: true
+  roles:
+    - common
+    - postgresql

@@ -1,0 +1,7 @@
+---
+- name: Deploy Keepalived for both Nginx and HAProxy VIPs
+  hosts: nginx:haproxy
+  become: true
+  roles:
+    - common
+    - keepalived

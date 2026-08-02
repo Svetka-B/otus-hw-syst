@@ -1,0 +1,6 @@
+backend_public_ip: "192.168.1.211"
+backend_storage_ip: "10.10.40.11"
+iscsi_initiator_iqn: iqn.2026-07.local.hw6:backend-1
+
+
+

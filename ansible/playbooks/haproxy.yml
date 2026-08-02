@@ -1,0 +1,7 @@
+---
+- name: Deploy HAProxy for PostgreSQL
+  hosts: haproxy
+  become: true
+  roles:
+    - common
+    - haproxy

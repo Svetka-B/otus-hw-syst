@@ -1,0 +1,64 @@
+# {{ ansible_managed }}
+global
+    log /dev/log local0
+    log /dev/log local1 notice
+    chroot /var/lib/haproxy
+    stats socket /run/haproxy/admin.sock mode 660 level admin
+    stats timeout 30s
+    user haproxy
+    group haproxy
+    daemon
+
+defaults
+    log global
+    mode tcp
+    option tcplog
+    option dontlognull
+    timeout connect 5000
+    timeout client 600000
+    timeout server 600000
+    retries 3
+
+# Statistics page
+frontend stats
+    bind *:{{ haproxy_stats_port }}
+    mode http
+    stats enable
+    stats uri /stats
+    stats refresh 10s
+    stats auth {{ haproxy_stats_user }}:{{ haproxy_stats_password }}
+    stats admin if TRUE
+
+# Write frontend (only primary)
+frontend postgres_write
+    bind *:{{ postgresql_write_port }}
+    mode tcp
+    option httpchk
+    default_backend postgres_primary
+
+# Read frontend (all replicas)
+frontend postgres_read
+    bind *:{{ postgresql_read_port }}
+    mode tcp
+    option httpchk
+    default_backend postgres_replicas
+
+# Backend - Primary (write)
+backend postgres_primary
+    mode tcp
+    option tcp-check 
+    default-server check inter 3s fall 3 rise 2
+{% for host in groups['db'] %}
+    server {{ hostvars[host].inventory_hostname }} {{ hostvars[host].ansible_host }}:5432 maxconn 100
+{% endfor %}
+
+
+# Backend - Replicas (read)
+backend postgres_replicas
+    mode tcp
+    balance roundrobin
+    option tcp-check 
+    default-server check inter 3s fall 3 rise 2
+{% for host in groups['db'] %}
+    server {{ hostvars[host].inventory_hostname }} {{ hostvars[host].ansible_host }}:5432 maxconn 100
+{% endfor %}

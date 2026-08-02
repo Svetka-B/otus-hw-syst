@@ -1,0 +1,8 @@
+---
+etcd_cluster_name: "postgres-etcd"
+etcd_data_dir: /var/lib/etcd
+etcd_wal_dir: /var/lib/etcd/wal
+etcd_initial_cluster: |
+  etcd-1=https://192.168.1.191:2380,etcd-2=https://192.168.1.192:2380,etcd-3=https://192.168.1.193:2380
+etcd_initial_cluster_state: "new"
+etcd_initial_cluster_token: "etcd-cluster-token"

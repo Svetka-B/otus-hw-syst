@@ -1,0 +1,18 @@
+[Unit]
+Description=Gunicorn for {{ app_name }}
+After=network.target
+
+[Service]
+User={{ app_user }}
+Group={{ app_group }}
+WorkingDirectory={{ app_current_path }}
+EnvironmentFile={{ app_env_path }}
+ExecStart={{ app_venv_path }}/bin/gunicorn \
+    --workers {{ app_workers }} \
+    --bind {{ app_bind_host }}:{{ app_bind_port }} \
+    {{ app_wsgi_module }}
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
