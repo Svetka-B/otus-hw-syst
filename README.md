@@ -1,67 +1,69 @@
-## Описание проекта
-Домашнее задание №1 урока 3 по курсу Инфраструктура высоконагруженных систем от OTUS. 
+Описание проекта
+
+Домашнее задание №6 урока 12 по курсу Инфраструктура высоконагруженных систем от OTUS. 
 Цель работы: 
-- cоздать и запустить базовый Terraform скрипт для автоматизации установки и настройки виртуальной машины в рабочем окружении;
-- получить базовые навыки работы с Terraform для создания и управления инфраструктурой;
-- понять принципы IaC (Infrastructure as Code) и научиться применять их для автоматизации инфраструктуры;
+- развернуть отказоустойчивый кластер PostgreSQL;
+- обеспечить автоматическое управление лидерством и высокую доступность с помощью Patroni;
+- настроить сервис-дискавери через etcd/Consul/ZooKeeper и балансировку с HAProxy или PgBouncer..
 
-Описание выполнения домашнего задания в соответствии с пошаговой инструкцией:
-1) Подготовка окружения:
-Установка Terraform на локальный ПК, выполнение terraform init. Проверка, что Terraform установлен на локальной машине:
+Описание/Пошаговая инструкция выполнения домашнего задания:
 
-![Terraform version](screenshots/01.jpg)
+Используем terraform и ansible роль для развертывания отказоустойчивого кластера PostgreSQL. 
 
-Создание УЗ, платежного аккаунта, облака и каталога в Yandex Cloud:
+    Разворачиваем отказоустойчивый кластер PostgreSQL на ВМ в Proxmox.
+    Создаем внутри кластера БД для проекта.
 
-![Yandex Cloud](screenshots/02.jpg)
+Подготовленная инфраструктура
 
-Создание сервисного аккаунта
+В лабораторной работе развернуты 2 nginx с балансировкой через VIP Keepalived + 2 backend + 3 ВМ БД PostgreSQL
 
-![Service account](screenshots/03.jpg)
+    nginx-1 — первый nginx-хост;
+    nginx-2 — второй nginx-хост;
+    backend-1 — первый backend-хост с Django-приложением;
+    backend-2 — второй backend-хост с Django-приложением;
+    db-1, db-2, db-3 — три узла PostgreSQL (Patroni, etcd).
 
-Установить командной строки Yandex Cloud. 
+Компоненты кластера PostgreSQL
 
-![YC CLI](screenshots/04.jpg)
+    PostgreSQL 16 — основная СУБД.
+    Patroni — управление кластером, автоматический выбор лидера (failover) и восстановление.
+    etcd 3.4 (3 узла, на db-1..db-3) — распределённое хранилище состояния (DCS) для Patroni.
+    HAProxy (на backend-1, backend-2) — балансировщик с разделением трафика:
+        Порт 5432 — write (только текущий лидер, проверка /master).
+        Порт 5433 — read (все реплики, round-robin, проверка /replica).
 
-Настройка доступа к облачному провайдеру: в создание main.tf, providers.tf и variables.tf. Создание сети, подсети и ресурса (виртуальная машина ubuntu) в main.tf. Добавление output.tf, которая покажет IP-адреса созданной виртуальной машины. 
-4) Инициализация и запуск:
-Запустить terraform init, проверка формата кода terraform fmt, проверить корректность кода terraform validate, составить план terraform plan.
+1. Развёртывание etcd с помошью роли etcd
+ - Установка etcd через snap (так как в Ubuntu 24.04 пакет отсутствует в репозиториях).
+ - Конфигурация в формате YAML (/var/snap/etcd/common/etcd.conf.yml) с включённым API v2 (enable-v2: true) для совместимости с Patroni.
+ - Запуск сервиса snap.etcd.etcd и формирование кластера из трёх узлов.
+2. Установка PostgreSQL и Patroni (роль postgresql)
+ - Установка PostgreSQL, 
+ - Установка Patroni и зависимостей
+ - Настройка Patroni (/etc/patroni/patroni.yml) 
+ - Запуск Patroni как systemd-сервиса.
+3. Настройка HAProxy (роль haproxy)
+ - Установка HAProxy.
+ - Конфигурация /etc/haproxy/haproxy.cfg с двумя фронтендами:
+    postgres_write (порт 5432) → бэкенд postgres_primary (проверка /master через Patroni API).
+    postgres_read (порт 5433) → бэкенд postgres_replicas (проверка /replica).
+ - Запуск HAProxy.
+4. Развертывание frontend 
+5. Развёртывание Django-приложения (роль backend_app)
+    
 
-![fmt validate plan](screenshots/05.jpg)
+На скриншоте 1 видим что кластер etcd создан, готов к работе + вывод состояния Pareoni на мастер ноде, также видно состав кластера 
+![screen01](screenshots/screen01.png)
 
-В данном случае все изменения уже применены
+На скриншотах 2 и 3 видим состояние patroni с replica нод
+![screen02](screenshots/screen02.png)
+![screen03](screenshots/screen03.png)
 
-Запустить terraform apply, чтобы создать виртуальную машину.
+На скриншоте 4 видим логи переключения мастера после отключения db-1, видно как роль мастера на себя взяла нода db-3, в после включения db-1 она вернулась в кластер в качестве replica
+![screen04](screenshots/screen04.png)
 
-![vm yc](screenshots/06.jpg)
-5) Проверка результата:
-Убедиться, что виртуальная машина создана и ее IP-адрес получен.
+На скриншоте 5 видим что db-3 стала лидером
+![screen05](screenshots/screen05.png)
 
-![vm ip](screenshots/07.jpg)
-
-![vm](screenshots/08.jpg)
-
-Подключиться к машине по SSH для подтверждения ее доступности.
-
-![access](screenshots/09.jpg)
-
-Домашнее задание выполнено с использованием ресурсов:
-
-https://yandex.cloud/ru/docs/tutorials/infrastructure-management/terraform-quickstart
-
-https://yandex.cloud/ru/docs/cli/quickstart#install
-
-https://yandex.cloud/ru/docs/compute/operations/vm-connect/ssh#linux-macos_2
-
-https://registry.terraform.io/providers/yandex-cloud/yandex/latest/docs/resources/compute_instance
-
-https://www.youtube.com/watch?v=q12v5mbMnco&list=PLjobQbACcMNlYIU0uYKM7GscG9g5Y3_bq&index=2
-
-
-Файл с ключами `key.json` не включен в репозиторий по соображениям безопасности.
-
-
-
-
-
+На скриншоте 6 видим страницу статистики HAProxy. На ней видны все серверы PostgreSQL в статусе UP, а также разделение трафика на write (порт 5432) и read (порт 5433).
+![screen06](screenshots/screen06.png)
 
