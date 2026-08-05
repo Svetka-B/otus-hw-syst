@@ -1,0 +1,26 @@
+filebeat.inputs:
+{% for input in filebeat_inputs %}
+- type: {{ input.type }}
+  enabled: {{ input.enabled }}
+  paths:
+{% for path in input.paths %}
+    - {{ path }}
+{% endfor %}
+  tags: {{ input.tags | to_json }}
+  fields:
+{% for key, value in input.fields.items() %}
+    {{ key }}: {{ value }}
+{% endfor %}
+  fields_under_root: false
+{% endfor %}
+
+output.logstash:
+  hosts: ["{{ filebeat_logstash_host }}"]
+
+logging.level: info
+logging.to_files: true
+logging.files:
+  path: /var/log/filebeat
+  name: filebeat
+  keepfiles: 7
+  permissions: 0644

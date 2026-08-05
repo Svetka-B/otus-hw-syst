@@ -1,0 +1,67 @@
+---
+- name: Install iSCSI initiator packages
+  ansible.builtin.apt:
+    name:
+      - open-iscsi
+    state: present
+    update_cache: true
+    lock_timeout: 300
+
+- name: Ensure iscsid service is enabled and started
+  ansible.builtin.systemd:
+    name: iscsid
+    state: started
+    enabled: true
+
+- name: Ensure iscsi service is enabled and started
+  ansible.builtin.systemd:
+    name: iscsi
+    state: started
+    enabled: true
+
+
+- name: Set iSCSI initiator name
+  ansible.builtin.copy:
+    dest: /etc/iscsi/initiatorname.iscsi
+    content: |
+      InitiatorName={{ iscsi_initiator_iqn }}
+    mode: "0644"
+  register: initiator_name_file
+
+- name: Restart iscsid after initiator name change
+  ansible.builtin.systemd:
+    name: iscsid
+    state: restarted
+  when: initiator_name_file.changed
+    
+
+- name: Discover targets on storage portal
+  ansible.builtin.command:
+    cmd: "iscsiadm -m discovery -t sendtargets -p {{ iscsi_target_portal_ip }}:{{ iscsi_target_port }}"
+  register: iscsi_discovery
+  changed_when: false
+  failed_when: iscsi_discovery.rc != 0
+
+
+- name: Ensure login to iSCSI target
+  ansible.builtin.command:
+    cmd: "iscsiadm -m node -T {{ iscsi_target_iqn }} -p {{ iscsi_target_portal_ip }}:{{ iscsi_target_port }} --login"
+  register: iscsi_login
+  changed_when: iscsi_login.rc == 0
+  failed_when: 
+    - iscsi_login.rc not in [0, 15, 255]
+    - "'already present' not in iscsi_login.stderr"
+
+- name: Enable automatic login to iSCSI target
+  ansible.builtin.command:
+    cmd: "iscsiadm -m node -T {{ iscsi_target_iqn }} -p {{ iscsi_target_portal_ip }}:{{ iscsi_target_port }} -o update -n node.startup -v automatic"
+  changed_when: false
+
+- name: Wait for iSCSI disk to appear
+  ansible.builtin.command:
+    cmd: "lsblk -ndo NAME,TYPE"
+  register: lsblk_output
+  retries: 10
+  delay: 2
+  until: "'disk' in lsblk_output.stdout"
+  changed_when: false

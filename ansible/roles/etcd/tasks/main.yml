@@ -1,0 +1,47 @@
+---
+- name: Install etcd via snap
+  snap:
+    name: etcd
+    classic: yes
+  register: etcd_install
+
+- name: Ensure etcd config directory exists
+  file:
+    path: /var/snap/etcd/common
+    state: directory
+    owner: root
+    group: root
+    mode: 0755
+
+- name: Remove old etcd data (if any) to prevent conflicts
+  file:
+    path: "{{ etcd_data_dir | default('/var/snap/etcd/common/data') }}"
+    state: absent
+  when: etcd_install.changed or ansible_play_hosts_all | length > 0
+
+- name: Ensure etcd data and wal directories exist with correct permissions
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: 0700
+  loop:
+    - "{{ etcd_data_dir | default('/var/snap/etcd/common/data') }}"
+    - "{{ etcd_wal_dir | default('/var/snap/etcd/common/wal') }}"
+
+- name: Deploy etcd configuration (YAML)
+  template:
+    src: etcd.conf.yml.j2
+    dest: /var/snap/etcd/common/etcd.conf.yml
+    owner: root
+    group: root
+    mode: 0644
+  notify: restart etcd
+
+- name: Enable and start etcd service
+  systemd:
+    name: snap.etcd.etcd
+    state: started
+    enabled: yes
+    daemon_reload: yes

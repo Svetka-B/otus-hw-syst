@@ -1,0 +1,111 @@
+# {{ ansible_managed }}
+scope: {{ patroni_scope }}
+namespace: {{ patroni_namespace }}
+name: {{ inventory_hostname }}
+
+restapi:
+  listen: 0.0.0.0:8008
+  connect_address: {{ ansible_default_ipv4.address }}:8008
+  auth: 'postgres:{{ patroni_restapi_password }}'
+
+etcd:
+  hosts:
+{% for host in groups['etcd'] %}
+    - {{ hostvars[host].ansible_default_ipv4.address }}:2379
+{% endfor %}
+
+# --- Bootstrap секция только для первого узла (лидера) ---
+{% set pg_nodes = groups['postgres'] %}
+{% set is_first_node = inventory_hostname == pg_nodes[0] %}
+
+{% if is_first_node %}
+bootstrap:
+  dcs:
+    ttl: {{ patroni_ttl }}
+    loop_wait: {{ patroni_loop_wait }}
+    retry_timeout: {{ patroni_retry_timeout }}
+    maximum_lag_on_failover: {{ patroni_maximum_lag_on_failover }}
+    postgresql:
+      use_pg_rewind: {{ patroni_use_pg_rewind }}
+      use_replication_slots: {{ patroni_use_replication_slots }}
+      parameters:
+        max_connections: {{ postgresql_max_connections }}
+        shared_buffers: {{ postgresql_shared_buffers }}
+        effective_cache_size: {{ postgresql_effective_cache_size }}
+        maintenance_work_mem: {{ postgresql_maintenance_work_mem }}
+        wal_level: {{ postgresql_wal_level }}
+        max_wal_senders: {{ postgresql_max_wal_senders }}
+        wal_keep_size: {{ postgresql_wal_keep_size }}
+        max_replication_slots: {{ postgresql_max_replication_slots }}
+        hot_standby: {{ postgresql_hot_standby }}
+        wal_log_hints: {{ postgresql_wal_log_hints }}
+        checkpoint_completion_target: 0.9
+        wal_buffers: 16MB
+        default_transaction_isolation: 'read committed'
+        logging_collector: on
+        log_directory: '/var/log/postgresql'
+        log_filename: 'postgresql-%Y-%m-%d_%H%M%S.log'
+        log_min_messages: warning
+        log_line_prefix: '%t [%p-%l] %q%u@%d '
+      users:
+        app:
+          password: '{{ app_db_password }}'
+          options:
+            - createrole
+            - createdb
+      databases:
+        app_db:
+          owner: app
+  initdb:
+    - encoding: UTF8
+    - data-checksums
+    - username: postgres
+    - auth: scram-sha-256
+    - auth-host: scram-sha-256
+    - auth-local: peer
+  pg_hba:
+    - local all all peer
+    - host all all 127.0.0.1/32 scram-sha-256
+    - host all all ::1/128 scram-sha-256
+    - host replication replicator 127.0.0.1/32 md5
+    - host replication replicator ::1/128 md5
+    - host replication replicator {{ cluster_net }} md5
+    - host app_db app {{ cluster_net }} md5
+{% endif %}
+
+# --- Общая конфигурация PostgreSQL ---
+postgresql:
+  listen: 0.0.0.0:5432
+  connect_address: {{ ansible_default_ipv4.address }}:5432
+  use_unix_socket: true
+  data_dir: {{ postgresql_data_dir }}
+  pgpass: /tmp/pgpass
+  authentication:
+    replication:
+      username: {{ replication_username }}
+      password: '{{ replication_password }}'
+    superuser:
+      username: postgres
+      password: '{{ postgresql_superuser_password }}'
+    rewind:
+      username: {{ replication_username }}
+      password: '{{ replication_password }}'
+  parameters:
+    unix_socket_directories: '/var/run/postgresql'
+  pg_hba:
+    - local all all peer
+    - host all all 127.0.0.1/32 scram-sha-256
+    - host all all ::1/128 scram-sha-256
+    - host replication replicator 127.0.0.1/32 md5
+    - host replication replicator ::1/128 md5
+    - host replication replicator {{ cluster_net }} md5
+    - host app_db app {{ cluster_net }} md5
+
+watchdog:
+  mode: off
+
+tags:
+  nofailover: false
+  noloadbalance: false
+  clonefrom: false
+  nosync: false

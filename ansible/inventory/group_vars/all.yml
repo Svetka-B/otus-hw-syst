@@ -1,0 +1,117 @@
+# Общие системные настройки
+ansible_user: svtk
+ansible_python_interpreter: /usr/bin/python3
+ansible_ssh_private_key_file: /home/dev/.ssh/id_ed25519
+
+timezone: Europe/Moscow
+lab_domain: hw6.local
+cluster_net: 192.168.1.0/24
+
+
+
+# ============================================================
+# PostgreSQL / Patroni общие настройки
+# ============================================================
+postgresql_version: 16
+patroni_version: 3.4.0
+postgresql_data_dir: /var/lib/postgresql/16/main
+
+# Пароли
+postgresql_superuser_password: "48124812" 
+replication_password: "48124812"
+patroni_restapi_password: "48124812"
+
+# Параметры PostgreSQL
+postgresql_max_connections: 200
+postgresql_shared_buffers: 1GB
+postgresql_effective_cache_size: 3GB
+postgresql_maintenance_work_mem: 256MB
+postgresql_wal_level: replica
+postgresql_max_wal_senders: 10
+postgresql_wal_keep_size: 1GB
+postgresql_max_replication_slots: 10
+postgresql_hot_standby: on
+postgresql_wal_log_hints: on
+postgresql_vip_interface: eth0
+
+
+# Patroni
+patroni_cluster_name: "postgres-cluster"
+patroni_scope: "postgres-cluster"
+patroni_namespace: "/service/"
+patroni_ttl: 30
+patroni_loop_wait: 10
+patroni_retry_timeout: 10
+patroni_maximum_lag_on_failover: 1048576   # 1GB
+patroni_use_pg_rewind: true
+patroni_use_replication_slots: true
+
+# Пользователи репликации
+replication_username: replicator
+
+# ============================================================
+# etcd
+# ============================================================
+etcd_cluster_name: "postgres-etcd"
+etcd_data_dir: /var/snap/etcd/common/data
+etcd_wal_dir: /var/snap/etcd/common/wal
+etcd_election_timeout: 1500
+etcd_heartbeat_interval: 250
+etcd_initial_cluster_state: "new"
+etcd_initial_cluster_token: "etcd-cluster-token"
+
+
+
+# ============================================================
+# HAProxy и Keepalived
+# ============================================================
+haproxy_stats_port: 7000
+haproxy_stats_user: admin
+haproxy_stats_password: "48124812"
+
+# VIP для PostgreSQL (будет подниматься на бэкенд-серверах)
+keepalived_interface: eth0                  # или ens18 – проверьте на ваших ВМ
+keepalived_virtual_router_id: 51
+keepalived_vip: "192.168.1.203"
+keepalived_priority: 100
+keepalived_auth_pass: "48124812"
+
+postgresql_vip: "192.168.1.100"
+postgresql_vip_interface: eth0              # должен совпадать с интерфейсом на бэкендах
+# Порты для HAProxy
+postgresql_write_port: 5432
+postgresql_read_port: 5433
+
+
+iscsi_iqn_prefix: "iqn.2026-07.local.hw6"
+iscsi_target_portal_ip: "10.10.40.21"
+iscsi_target_port: 3260
+iscsi_target_iqn: "iqn.2026-07.local.hw6:storage-1"
+
+
+# ============================================================
+# Кластерные настройки (для iSCSI/Corosync)
+# ============================================================
+cluster_nodes:
+  - name: backend-1
+    ring0_addr: "10.10.40.11"
+  - name: backend-2
+    ring0_addr: "10.10.40.12"
+
+
+# ============================================================
+# Имя БД и пользователь для приложения (доступно для всех хостов)
+# ============================================================
+db_name: "app_db"
+db_user: "app"
+db_password: "{{ postgresql_superuser_password }}"
+
+
+# ============================================================
+# Данные для Filebeat - передачи логов на ELK
+# ============================================================
+
+filebeat_version: "8.x"
+filebeat_logstash_host: "192.168.1.194:5044"
+
+

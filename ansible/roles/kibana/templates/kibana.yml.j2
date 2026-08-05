@@ -1,0 +1,6 @@
+server.host: {{ kibana_server_host }}
+server.port: {{ kibana_server_port }}
+elasticsearch.hosts: {{ kibana_elasticsearch_hosts | to_json }}
+# Отключаем безопасность, так как ES без пароля
+elasticsearch.username: ""
+elasticsearch.password: ""

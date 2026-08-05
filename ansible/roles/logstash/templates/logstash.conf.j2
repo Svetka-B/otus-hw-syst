@@ -1,0 +1,49 @@
+input {
+  beats {
+    port => {{ logstash_beat_port }}
+    host => "0.0.0.0"
+  }
+}
+
+filter {
+  mutate {
+    remove_field => ["host", "ecs", "agent", "log", "input"]
+  }
+
+  if [fields][type] == "nginx-access" {
+    grok {
+      match => { "message" => "%{COMBINEDAPACHELOG}" }
+    }
+    date {
+      match => [ "timestamp", "dd/MMM/yyyy:HH:mm:ss Z" ]
+    }
+  }
+
+  if [fields][type] == "django" {
+    grok {
+      match => { "message" => "\[%(timestamp:date)\] %{LOGLEVEL:level} %{GREEDYDATA:message}" }
+    }
+  }
+
+  if [fields][type] == "postgresql" {
+    grok {
+      match => { "message" => "%{TIMESTAMP_ISO8601:timestamp} %{LOGLEVEL:level}: %{GREEDYDATA:message}" }
+    }
+  }
+
+  mutate {
+    remove_field => ["message"]
+  }
+}
+
+
+output {
+  elasticsearch {
+    hosts => {{ logstash_es_hosts | to_json }}
+    index => "logstash-%{[fields][type]}-%{+YYYY.MM.dd}"
+    ilm_enabled => false
+    data_stream => false
+  }
+  stdout { codec => rubydebug }
+}
+

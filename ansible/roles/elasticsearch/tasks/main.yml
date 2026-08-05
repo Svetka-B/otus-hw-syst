@@ -1,0 +1,105 @@
+---
+- name: Add Elasticsearch Mirror
+  ansible.builtin.shell: |
+    echo "deb [trusted=yes] https://mirror.yandex.ru/mirrors/elastic/8/ stable main" | sudo tee /etc/apt/sources.list.d/elastic-8.x.list
+
+- name: Update repo indexes
+  ansible.builtin.apt:
+    update_cache: yes
+    cache_valid_time: 0
+
+- name: Install Elastic Search
+  ansible.builtin.apt:
+    name: elasticsearch
+    state: present
+    force_apt_get: yes
+
+- name: Ensure Elasticsearch data and log directories exist
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: elasticsearch
+    group: elasticsearch
+    mode: 0755
+  loop:
+    - /var/lib/elasticsearch
+    - /var/log/elasticsearch
+  notify: restart elasticsearch
+
+- name: Set vm.max_map_count for Elasticsearch
+  sysctl:
+    name: vm.max_map_count
+    value: 262144
+    state: present
+    reload: yes
+  notify: restart elasticsearch
+
+- name: Create directory for JVM options override
+  file:
+    path: /etc/elasticsearch/jvm.options.d
+    state: directory
+    owner: root
+    group: elasticsearch
+    mode: 0755
+
+- name: Set JVM heap size
+  copy:
+    content: |
+      -Xms{{ elasticsearch_heap_size }}
+      -Xmx{{ elasticsearch_heap_size }}
+    dest: /etc/elasticsearch/jvm.options.d/heap.options
+    owner: root
+    group: elasticsearch
+    mode: 0644
+  notify: restart elasticsearch
+
+- name: Remove old SSL password entries (if any)
+  lineinfile:
+    path: /etc/elasticsearch/elasticsearch.yml
+    regexp: '^xpack\.security\.transport\.ssl\.(keystore|truststore)\.secure_password:'
+    state: absent
+  notify: restart elasticsearch
+  when: not elasticsearch_xpack_security_enabled
+
+- name: Configure Elasticsearch
+  template:
+    src: elasticsearch.yml.j2
+    dest: /etc/elasticsearch/elasticsearch.yml
+    owner: root
+    group: elasticsearch
+    mode: 0644
+  notify: restart elasticsearch
+
+- name: Ensure Elasticsearch service is started and enabled
+  systemd:
+    name: elasticsearch
+    state: started
+    enabled: yes
+    daemon_reload: yes
+
+- name: Wait for Elasticsearch to become ready (HTTP API)
+  uri:
+    url: "http://{{ ansible_default_ipv4.address }}:{{ elasticsearch_http_port }}/_cluster/health"
+    method: GET
+    status_code: 200
+    timeout: 30
+  register: result
+  until: result.status == 200
+  retries: 30
+  delay: 5
+
+- name: Check cluster health (only on first node)
+  uri:
+    url: "http://{{ elasticsearch_discovery_seed_hosts[0] }}:{{ elasticsearch_http_port }}/_cluster/health?pretty"
+    method: GET
+    return_content: yes
+  register: health
+  run_once: yes
+  when: inventory_hostname == groups['elasticsearch'][0]
+  delegate_to: "{{ groups['elasticsearch'][0] }}"
+
+- name: Display cluster health (debug)
+  debug:
+    var: health.json
+  run_once: yes
+  when: inventory_hostname == groups['elasticsearch'][0]

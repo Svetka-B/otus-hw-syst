@@ -1,0 +1,112 @@
+
+---
+- name: Install cluster packages
+  ansible.builtin.apt:
+    name:
+      - pacemaker
+      - corosync
+      - pcs
+      - gfs2-utils
+      - dlm-controld
+    state: present
+    update_cache: true
+    lock_timeout: 300
+
+- name: Ensure pcsd service is enabled and started
+  ansible.builtin.systemd:
+    name: pcsd
+    enabled: true
+    state: started
+
+- name: Ensure backend nodes are present in /etc/hosts
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: '.*\s{{ item.name }}(\s|$)'
+    line: "{{ item.ring0_addr.split('/')[0] }} {{ item.name }}"
+    state: present
+  loop: "{{ cluster_nodes }}"
+
+- name: Set password for hacluster user
+  ansible.builtin.user:
+    name: hacluster
+    password: "{{ hacluster_password_hash }}"
+    update_password: always
+
+- name: Stop existing cluster on all backend nodes
+  ansible.builtin.shell: pcs cluster stop --all --force || true
+  args:
+    executable: /bin/bash
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['backend'] }}"
+  run_once: true
+  changed_when: false
+
+- name: Destroy existing cluster on all backend nodes
+  ansible.builtin.shell: pcs cluster destroy --force || true
+  args:
+    executable: /bin/bash
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['backend'] }}"
+  run_once: true
+  changed_when: false
+
+- name: Authenticate backend nodes in pcs
+  ansible.builtin.command:
+    cmd: >
+      pcs host auth
+      {% for host in groups['backend'] %}{{ host }} {% endfor %}
+      -u hacluster
+      -p {{ hacluster_password_plain }}
+  run_once: true
+  delegate_to: "{{ groups['backend'][0] }}"
+  register: pcs_auth_result
+  changed_when: pcs_auth_result.rc == 0
+  failed_when: pcs_auth_result.rc != 0
+
+- name: Create pcs cluster with ring addresses
+  ansible.builtin.command:
+    cmd: >
+      pcs cluster setup {{ cluster_name }}
+      {% for node in cluster_nodes %}
+      {{ node.name }} addr={{ node.ring0_addr.split('/')[0] }}
+      {% endfor %}
+  run_once: true
+  delegate_to: "{{ groups['backend'][0] }}"
+  register: pcs_cluster_setup
+  changed_when: pcs_cluster_setup.rc == 0
+  failed_when: pcs_cluster_setup.rc != 0
+
+- name: Start cluster on all nodes
+  ansible.builtin.command:
+    cmd: pcs cluster start --all
+  run_once: true
+  delegate_to: "{{ groups['backend'][0] }}"
+  register: pcs_cluster_start
+  changed_when: pcs_cluster_start.rc == 0
+
+- name: Enable cluster on all nodes
+  ansible.builtin.command:
+    cmd: pcs cluster enable --all
+  run_once: true
+  delegate_to: "{{ groups['backend'][0] }}"
+  register: pcs_cluster_enable
+  changed_when: pcs_cluster_enable.rc == 0
+
+- name: Create DLM Pacemaker resource
+  ansible.builtin.command:
+    cmd: >
+      pcs resource create dlm ocf:pacemaker:controld
+      op monitor interval=30s on-fail=fence
+  run_once: true
+  delegate_to: "{{ groups['backend'][0] }}"
+  register: pcs_dlm_create
+  failed_when:
+    - pcs_dlm_create.rc != 0
+    - "'already exists' not in (pcs_dlm_create.stderr | lower)"
+    - "'already exists' not in (pcs_dlm_create.stdout | lower)"
+  changed_when:
+    - pcs_dlm_create.rc == 0
+    - "'already exists' not in (pcs_dlm_create.stderr | lower)"
+    - "'already exists' not in (pcs_dlm_create.stdout | lower)"
+
+

@@ -1,0 +1,26 @@
+cluster_name: hw4cluster
+gfs2_fs_name: sharedfs
+gfs2_lock_protocol: lock_dlm
+gfs2_journals: 2
+gfs2_device: "{{ iscsi_shared_device }}"
+
+shared_mount_point: /srv/shared
+
+iscsi_shared_device: "/dev/disk/by-path/ip-{{ hostvars['storage-1'].storage_iscsi_ip }}:{{ iscsi_target_port }}-iscsi-{{ iscsi_target_iqn }}-lun-0"
+
+corosync_bindnetaddr: "10.10.40.0"
+corosync_mcastport: 5405
+
+hacluster_password_plain: "48124812"
+hacluster_password_hash: "{{ hacluster_password_plain | password_hash('sha512') }}"
+
+cluster_nodes:
+  - name: backend-1
+    ring0_addr: "{{ hostvars['backend-1'].backend_storage_ip }}"
+  - name: backend-2
+    ring0_addr: "{{ hostvars['backend-2'].backend_storage_ip }}"
+
+iscsi_target_iqn: "{{ iscsi_iqn_prefix }}:storage-1"
+iscsi_target_portal_ip: "10.10.40.21"
+iscsi_target_port: 3260
+

@@ -1,0 +1,7 @@
+---
+- name: Deploy Logstash
+  hosts: logstash
+  become: yes
+  gather_facts: yes
+  roles:
+    - logstash

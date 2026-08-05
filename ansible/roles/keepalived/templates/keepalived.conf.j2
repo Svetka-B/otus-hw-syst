@@ -1,0 +1,88 @@
+# {{ ansible_managed }}
+global_defs {
+    router_id {{ inventory_hostname }}
+    enable_script_security
+    script_user root
+}
+
+{% if inventory_hostname in groups['nginx'] %}
+vrrp_script chk_nginx {
+    script "/usr/local/bin/check_nginx.sh"
+    interval 2
+    timeout 2
+    weight -20
+    fall 2
+    rise 1
+}
+
+vrrp_instance VI_NGINX {
+    state {{ 'MASTER' if inventory_hostname == groups['nginx'][0] else 'BACKUP' }}
+    interface {{ keepalived_interface }}
+    virtual_router_id {{ keepalived_virtual_router_id }}
+    priority {{ keepalived_priority if inventory_hostname == groups['nginx'][0] else keepalived_priority|int - 10 }}
+    advert_int 1
+
+    authentication {
+        auth_type PASS
+        auth_pass {{ keepalived_auth_pass }}
+    }
+
+    unicast_src_ip {{ ansible_host }}
+    unicast_peer {
+{% for host in groups['nginx'] %}
+{% if host != inventory_hostname %}
+        {{ hostvars[host].ansible_host }}
+{% endif %}
+{% endfor %}
+    }
+
+    virtual_ipaddress {
+        {{ keepalived_vip }}/24
+    }
+
+    track_script {
+        chk_nginx
+    }
+}
+{% endif %}
+
+{% if inventory_hostname in groups['haproxy'] %}
+vrrp_script chk_haproxy {
+    script "/usr/local/bin/check_haproxy.sh"
+    interval 2
+    timeout 2
+    weight -20
+    fall 2
+    rise 1
+}
+
+vrrp_instance VI_HAPROXY {
+    state {{ 'MASTER' if inventory_hostname == groups['haproxy'][0] else 'BACKUP' }}
+    interface {{ postgresql_vip_interface }}
+    virtual_router_id 52
+    priority {{ keepalived_priority if inventory_hostname == groups['haproxy'][0] else keepalived_priority|int - 10 }}
+    advert_int 1
+
+    authentication {
+        auth_type PASS
+        auth_pass {{ keepalived_auth_pass }}
+    }
+
+    unicast_src_ip {{ ansible_host }}
+    unicast_peer {
+{% for host in groups['haproxy'] %}
+{% if host != inventory_hostname %}
+        {{ hostvars[host].ansible_host }}
+{% endif %}
+{% endfor %}
+    }
+
+    virtual_ipaddress {
+        {{ postgresql_vip }}/24
+    }
+
+    track_script {
+        chk_haproxy
+    }
+}
+{% endif %}

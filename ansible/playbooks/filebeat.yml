@@ -1,0 +1,8 @@
+---
+- name: Deploy Filebeat on all servers
+  hosts: nginx, backend, db
+  become: yes
+  gather_facts: yes
+  roles:
+    - filebeat
+  tags: filebeat

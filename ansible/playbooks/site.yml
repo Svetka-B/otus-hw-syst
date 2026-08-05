@@ -1,0 +1,8 @@
+- import_playbook: storage.yml
+- import_playbook: cluster.yml
+- import_playbook: database.yml
+- import_playbook: haproxy.yml
+- import_playbook: keepalived.yml
+- import_playbook: backend.yml
+- import_playbook: nginx.yml
+- import_playbook: elasticsearch.yml

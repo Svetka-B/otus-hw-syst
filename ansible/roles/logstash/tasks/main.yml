@@ -1,0 +1,55 @@
+- name: Add Elastic Search Repo from Yandex
+  ansible.builtin.shell: |
+         echo "deb [trusted=yes] https://mirror.yandex.ru/mirrors/elastic/8/ stable main" | sudo tee /etc/apt/sources.list.d/elastic-8.x.list     
+  tags: always       
+
+- name: Update repo indexes  
+  ansible.builtin.apt:
+    update_cache: yes
+    cache_valid_time: 0  
+  tags: always    
+
+- name: Install Logstash
+  ansible.builtin.apt:
+    name: 
+         - logstash 
+  tags: alway
+
+- name: Create Logstash configuration directory (if needed)
+  file:
+    path: /etc/logstash/conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: 0755
+
+- name: Deploy Logstash pipeline configuration
+  template:
+    src: logstash.conf.j2
+    dest: /etc/logstash/conf.d/logstash.conf
+    owner: root
+    group: root
+    mode: 0644
+  notify: restart logstash
+
+- name: Ensure Logstash service is started and enabled
+  systemd:
+    name: logstash
+    state: started
+    enabled: yes
+    daemon_reload: yes
+
+- name: Wait for Logstash to start (port 5044)
+  wait_for:
+    port: "{{ logstash_beat_port }}"
+    host: "0.0.0.0"
+    timeout: 60
+    state: started
+
+- name: Wait for Logstash API (port 9600)
+  wait_for:
+    port: 9600
+    host: "0.0.0.0"
+    timeout: 30
+    state: started
+

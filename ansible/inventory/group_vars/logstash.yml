@@ -1,0 +1,9 @@
+---
+logstash_version: "8.x"
+logstash_beat_port: 5044
+logstash_es_hosts: 
+  - "192.168.1.191:9200"
+  - "192.168.1.192:9200"
+  - "192.168.1.193:9200"
+logstash_pipeline_workers: 2
+logstash_filter_config: "logstash.conf.j2"

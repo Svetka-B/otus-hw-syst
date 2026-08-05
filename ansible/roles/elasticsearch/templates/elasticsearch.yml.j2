@@ -1,0 +1,13 @@
+cluster.name: {{ elasticsearch_cluster_name }}
+node.name: {{ ansible_hostname }}
+network.host: {{ elasticsearch_network_host }}
+http.port: {{ elasticsearch_http_port }}
+transport.port: {{ elasticsearch_transport_port }}
+path.data: /var/lib/elasticsearch
+path.logs: /var/log/elasticsearch
+discovery.seed_hosts: {{ elasticsearch_discovery_seed_hosts | to_json }}
+cluster.initial_master_nodes: {{ elasticsearch_cluster_initial_master_nodes | to_json }}
+xpack.security.enabled: {{ elasticsearch_xpack_security_enabled }}
+xpack.security.enrollment.enabled: false
+xpack.security.transport.ssl.enabled: false
+xpack.security.http.ssl.enabled: false

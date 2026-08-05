@@ -1,0 +1,38 @@
+- name: Add Elasticsearch Mirror
+  ansible.builtin.shell: |
+    echo "deb [trusted=yes] https://mirror.yandex.ru/mirrors/elastic/8/ stable main" | sudo tee /etc/apt/sources.list.d/elastic-8.x.list
+
+- name: Update repo indexes
+  ansible.builtin.apt:
+    update_cache: yes
+    cache_valid_time: 0
+
+- name: Install Elastic Search
+  ansible.builtin.apt:
+    name: filebeat
+    state: present
+    force_apt_get: yes
+
+- name: Deploy Filebeat configuration
+  template:
+    src: filebeat.yml.j2
+    dest: /etc/filebeat/filebeat.yml
+    owner: root
+    group: root
+    mode: 0644
+  notify: restart filebeat
+
+- name: Ensure Filebeat service is started and enabled
+  systemd:
+    name: filebeat
+    state: started
+    enabled: yes
+    daemon_reload: yes
+
+- name: Wait for Filebeat to connect (optional)
+  wait_for:
+    port: 5044
+    host: "{{ filebeat_logstash_host.split(':')[0] }}"
+    timeout: 10
+    state: started
+  ignore_errors: yes

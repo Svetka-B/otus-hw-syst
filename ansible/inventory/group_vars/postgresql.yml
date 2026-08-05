@@ -1,0 +1,39 @@
+---
+# Специфичные переменные для PostgreSQL-кластера (Patroni)
+
+# Идентификатор узла
+node_id: "{{ inventory_hostname | regex_replace('db-', '') }}"
+
+# Имя базы данных, пользователь и пароль для приложения
+db_name: app_db
+db_user: app
+db_password: "48124812"
+app_db_password: "48124812"
+# Дополнительные параметры Patroni (можно переопределить, если требуется)
+# patroni_ttl: 30
+# patroni_loop_wait: 10
+
+# Список узлов PostgreSQL с их IP
+postgresql_nodes:
+  - { name: "db-1", address: "192.168.1.221" }
+  - { name: "db-2", address: "192.168.1.222" }
+  - { name: "db-3", address: "192.168.1.223" }
+
+
+filebeat_inputs:
+  - type: log
+    enabled: true
+    paths:
+      - /var/log/postgresql/postgresql-*.log
+    tags: ["postgresql"]
+    fields:
+      type: postgresql
+      role: db
+  - type: log
+    enabled: true
+    paths:
+      - /var/log/syslog
+    tags: ["syslog"]
+    fields:
+      type: syslog
+      role: db

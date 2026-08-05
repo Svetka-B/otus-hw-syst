@@ -1,0 +1,16 @@
+
+elasticsearch_version: "8.x"
+elasticsearch_cluster_name: "elk-cluster"
+elasticsearch_network_host: "0.0.0.0"
+elasticsearch_http_port: 9200
+elasticsearch_transport_port: 9300
+elasticsearch_heap_size: "1g"
+elasticsearch_discovery_seed_hosts:
+  - "192.168.1.191"
+  - "192.168.1.192"
+  - "192.168.1.193"
+elasticsearch_cluster_initial_master_nodes:
+  - "es-1"
+  - "es-2"
+  - "es-3"
+elasticsearch_xpack_security_enabled: false

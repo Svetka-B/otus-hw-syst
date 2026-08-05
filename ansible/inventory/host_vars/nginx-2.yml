@@ -1,0 +1,6 @@
+nginx_public_ip: "192.168.1.202"
+nginx_role: backup
+keepalived_priority: 100
+keepalived_state: BACKUP
+keepalived_unicast_src_ip: 192.168.1.202
+

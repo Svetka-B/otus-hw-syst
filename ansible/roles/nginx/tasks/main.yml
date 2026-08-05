@@ -1,0 +1,41 @@
+- name: Install nginx
+  apt:
+    name: nginx
+    state: present
+    update_cache: true
+
+- name: Ensure nginx service enabled
+  systemd:
+    name: nginx
+    enabled: true
+
+- name: Remove default nginx site
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: reload nginx
+
+- name: Deploy nginx config
+  template:
+    src: notes.conf.j2
+    dest: /etc/nginx/sites-available/notes.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: reload nginx
+
+- name: Enable notes nginx site
+  file:
+    src: /etc/nginx/sites-available/notes.conf
+    dest: /etc/nginx/sites-enabled/notes.conf
+    state: link
+  notify: reload nginx
+
+- name: Validate nginx config
+  command: nginx -t
+  changed_when: false
+
+- name: Ensure nginx is started
+  systemd:
+    name: nginx
+    state: started

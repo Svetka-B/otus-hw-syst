@@ -1,0 +1,36 @@
+- name: Add Elasticsearch Mirror
+  ansible.builtin.shell: |
+    echo "deb [trusted=yes] https://mirror.yandex.ru/mirrors/elastic/8/ stable main" | sudo tee /etc/apt/sources.list.d/elastic-8.x.list
+
+- name: Update repo indexes
+  ansible.builtin.apt:
+    update_cache: yes
+    cache_valid_time: 0
+
+- name: Install Kibana
+  ansible.builtin.apt:
+     name: 
+       - kibana 
+
+- name: Configure Kibana
+  template:
+    src: kibana.yml.j2
+    dest: /etc/kibana/kibana.yml
+    owner: root
+    group: root
+    mode: 0644
+  notify: restart kibana
+
+- name: Ensure Kibana service is started and enabled
+  systemd:
+    name: kibana
+    state: started
+    enabled: yes
+    daemon_reload: yes
+
+- name: Wait for Kibana to start (port 5601)
+  wait_for:
+    port: "{{ kibana_server_port }}"
+    host: "0.0.0.0"
+    timeout: 60
+    state: started    

@@ -1,0 +1,8 @@
+---
+kibana_version: "8.x"
+kibana_server_host: "0.0.0.0"
+kibana_server_port: 5601
+kibana_elasticsearch_hosts:
+  - "http://192.168.1.191:9200"
+  - "http://192.168.1.192:9200"
+  - "http://192.168.1.193:9200"
